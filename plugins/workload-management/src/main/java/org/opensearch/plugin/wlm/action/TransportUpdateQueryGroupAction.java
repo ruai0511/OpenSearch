@@ -10,42 +10,84 @@ package org.opensearch.plugin.wlm.action;
 
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.action.support.clustermanager.TransportClusterManagerNodeAction;
+import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.block.ClusterBlockException;
+import org.opensearch.cluster.block.ClusterBlockLevel;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.plugin.wlm.service.QueryGroupPersistenceService;
 import org.opensearch.tasks.Task;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
+
+import java.io.IOException;
 
 /**
  * Transport action to update QueryGroup
  *
  * @opensearch.experimental
  */
-public class TransportUpdateQueryGroupAction extends HandledTransportAction<UpdateQueryGroupRequest, UpdateQueryGroupResponse> {
+public class TransportUpdateQueryGroupAction extends TransportClusterManagerNodeAction<UpdateQueryGroupRequest, UpdateQueryGroupResponse> {
 
     private final QueryGroupPersistenceService queryGroupPersistenceService;
 
     /**
      * Constructor for TransportUpdateQueryGroupAction
      *
-     * @param actionName - action name
+     * @param clusterService - a {@link ClusterService} object
      * @param transportService - a {@link TransportService} object
      * @param actionFilters - a {@link ActionFilters} object
+     * @param threadPool - a {@link ThreadPool} object
+     * @param indexNameExpressionResolver - a {@link IndexNameExpressionResolver} object
      * @param queryGroupPersistenceService - a {@link QueryGroupPersistenceService} object
      */
     @Inject
     public TransportUpdateQueryGroupAction(
-        String actionName,
+        ClusterService clusterService,
         TransportService transportService,
         ActionFilters actionFilters,
+        ThreadPool threadPool,
+        IndexNameExpressionResolver indexNameExpressionResolver,
         QueryGroupPersistenceService queryGroupPersistenceService
     ) {
-        super(UpdateQueryGroupAction.NAME, transportService, actionFilters, UpdateQueryGroupRequest::new);
+        super(
+            UpdateQueryGroupAction.NAME,
+            transportService,
+            clusterService,
+            threadPool,
+            actionFilters,
+            UpdateQueryGroupRequest::new,
+            indexNameExpressionResolver
+        );
         this.queryGroupPersistenceService = queryGroupPersistenceService;
     }
 
     @Override
-    protected void doExecute(Task task, UpdateQueryGroupRequest request, ActionListener<UpdateQueryGroupResponse> listener) {
+    protected void clusterManagerOperation(
+        UpdateQueryGroupRequest request,
+        ClusterState state,
+        ActionListener<UpdateQueryGroupResponse> listener
+    ) throws Exception {
         queryGroupPersistenceService.updateInClusterStateMetadata(request, listener);
+    }
+
+    @Override
+    protected String executor() {
+        return ThreadPool.Names.SAME;
+    }
+
+    @Override
+    protected UpdateQueryGroupResponse read(StreamInput in) throws IOException {
+        return new UpdateQueryGroupResponse(in);
+    }
+
+    @Override
+    protected ClusterBlockException checkBlock(UpdateQueryGroupRequest request, ClusterState state) {
+        return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_WRITE);
     }
 }
