@@ -9,18 +9,12 @@
 package org.opensearch.plugin.wlm.rest;
 
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.core.rest.RestStatus;
-import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.plugin.wlm.action.CreateQueryGroupAction;
 import org.opensearch.plugin.wlm.action.CreateQueryGroupRequest;
-import org.opensearch.plugin.wlm.action.CreateQueryGroupResponse;
 import org.opensearch.rest.BaseRestHandler;
-import org.opensearch.rest.BytesRestResponse;
-import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestResponse;
-import org.opensearch.rest.action.RestResponseListener;
+import org.opensearch.rest.action.RestToXContentListener;
 
 import java.io.IOException;
 import java.util.List;
@@ -57,16 +51,15 @@ public class RestCreateQueryGroupAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         try (XContentParser parser = request.contentParser()) {
             CreateQueryGroupRequest createQueryGroupRequest = CreateQueryGroupRequest.fromXContent(parser);
-            return channel -> client.execute(CreateQueryGroupAction.INSTANCE, createQueryGroupRequest, createQueryGroupResponse(channel));
+            createQueryGroupRequest.clusterManagerNodeTimeout(
+                request.paramAsTime("cluster_manager_timeout", createQueryGroupRequest.clusterManagerNodeTimeout())
+            );
+            createQueryGroupRequest.timeout(request.paramAsTime("timeout", createQueryGroupRequest.timeout()));
+            return channel -> client.execute(
+                CreateQueryGroupAction.INSTANCE,
+                createQueryGroupRequest,
+                new RestToXContentListener<>(channel)
+            );
         }
-    }
-
-    private RestResponseListener<CreateQueryGroupResponse> createQueryGroupResponse(final RestChannel channel) {
-        return new RestResponseListener<>(channel) {
-            @Override
-            public RestResponse buildResponse(final CreateQueryGroupResponse response) throws Exception {
-                return new BytesRestResponse(RestStatus.OK, response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS));
-            }
-        };
     }
 }

@@ -22,10 +22,9 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.plugin.wlm.QueryGroupTestUtils;
-import org.opensearch.plugin.wlm.action.CreateQueryGroupResponse;
+import org.opensearch.plugin.wlm.action.CreateQueryGroupRequest;
 import org.opensearch.plugin.wlm.action.DeleteQueryGroupRequest;
 import org.opensearch.plugin.wlm.action.UpdateQueryGroupRequest;
-import org.opensearch.plugin.wlm.action.UpdateQueryGroupResponse;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.wlm.MutableQueryGroupFragment;
@@ -197,13 +196,13 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
     public void testPersistInClusterStateMetadata() {
         ClusterService clusterService = mock(ClusterService.class);
         @SuppressWarnings("unchecked")
-        ActionListener<CreateQueryGroupResponse> listener = mock(ActionListener.class);
+        ActionListener<AcknowledgedResponse> listener = mock(ActionListener.class);
         QueryGroupPersistenceService queryGroupPersistenceService = new QueryGroupPersistenceService(
             clusterService,
             QueryGroupTestUtils.settings(),
             clusterSettings()
         );
-        queryGroupPersistenceService.persistInClusterStateMetadata(queryGroupOne, listener);
+        queryGroupPersistenceService.persistInClusterStateMetadata(new CreateQueryGroupRequest(queryGroupOne), listener);
         verify(clusterService).submitStateUpdateTask(eq(SOURCE), any());
     }
 
@@ -213,14 +212,14 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
     public void testPersistInClusterStateMetadataInner() {
         ClusterService clusterService = mock(ClusterService.class);
         @SuppressWarnings("unchecked")
-        ActionListener<CreateQueryGroupResponse> listener = mock(ActionListener.class);
+        ActionListener<AcknowledgedResponse> listener = mock(ActionListener.class);
         QueryGroupPersistenceService queryGroupPersistenceService = new QueryGroupPersistenceService(
             clusterService,
             QueryGroupTestUtils.settings(),
             clusterSettings()
         );
         ArgumentCaptor<ClusterStateUpdateTask> captor = ArgumentCaptor.forClass(ClusterStateUpdateTask.class);
-        queryGroupPersistenceService.persistInClusterStateMetadata(queryGroupOne, listener);
+        queryGroupPersistenceService.persistInClusterStateMetadata(new CreateQueryGroupRequest(queryGroupOne), listener);
         verify(clusterService, times(1)).submitStateUpdateTask(eq(SOURCE), captor.capture());
         ClusterStateUpdateTask capturedTask = captor.getValue();
         assertEquals(queryGroupPersistenceService.createQueryGroupThrottlingKey, capturedTask.getClusterManagerThrottlingKey());
@@ -230,8 +229,7 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
             task.clusterStateProcessed(SOURCE, mock(ClusterState.class), mock(ClusterState.class));
             return null;
         }).when(clusterService).submitStateUpdateTask(anyString(), any());
-        queryGroupPersistenceService.persistInClusterStateMetadata(queryGroupOne, listener);
-        verify(listener).onResponse(any(CreateQueryGroupResponse.class));
+        queryGroupPersistenceService.persistInClusterStateMetadata(new CreateQueryGroupRequest(queryGroupOne), listener);
     }
 
     /**
@@ -240,7 +238,7 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
     public void testPersistInClusterStateMetadataFailure() {
         ClusterService clusterService = mock(ClusterService.class);
         @SuppressWarnings("unchecked")
-        ActionListener<CreateQueryGroupResponse> listener = mock(ActionListener.class);
+        ActionListener<AcknowledgedResponse> listener = mock(ActionListener.class);
         QueryGroupPersistenceService queryGroupPersistenceService = new QueryGroupPersistenceService(
             clusterService,
             QueryGroupTestUtils.settings(),
@@ -252,7 +250,7 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
             task.onFailure(SOURCE, exception);
             return null;
         }).when(clusterService).submitStateUpdateTask(anyString(), any());
-        queryGroupPersistenceService.persistInClusterStateMetadata(queryGroupOne, listener);
+        queryGroupPersistenceService.persistInClusterStateMetadata(new CreateQueryGroupRequest(queryGroupOne), listener);
         verify(listener).onFailure(any(RuntimeException.class));
     }
 
@@ -446,7 +444,7 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
     public void testUpdateInClusterStateMetadata() {
         ClusterService clusterService = mock(ClusterService.class);
         @SuppressWarnings("unchecked")
-        ActionListener<UpdateQueryGroupResponse> listener = mock(ActionListener.class);
+        ActionListener<AcknowledgedResponse> listener = mock(ActionListener.class);
         QueryGroupPersistenceService queryGroupPersistenceService = new QueryGroupPersistenceService(
             clusterService,
             QueryGroupTestUtils.settings(),
@@ -462,7 +460,7 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
     public void testUpdateInClusterStateMetadataInner() {
         ClusterService clusterService = mock(ClusterService.class);
         @SuppressWarnings("unchecked")
-        ActionListener<UpdateQueryGroupResponse> listener = mock(ActionListener.class);
+        ActionListener<AcknowledgedResponse> listener = mock(ActionListener.class);
         QueryGroupPersistenceService queryGroupPersistenceService = new QueryGroupPersistenceService(
             clusterService,
             QueryGroupTestUtils.settings(),
@@ -484,7 +482,6 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
             return null;
         }).when(clusterService).submitStateUpdateTask(anyString(), any());
         queryGroupPersistenceService.updateInClusterStateMetadata(updateQueryGroupRequest, listener);
-        verify(listener).onResponse(any(UpdateQueryGroupResponse.class));
     }
 
     /**
@@ -493,7 +490,7 @@ public class QueryGroupPersistenceServiceTests extends OpenSearchTestCase {
     public void testUpdateInClusterStateMetadataFailure() {
         ClusterService clusterService = mock(ClusterService.class);
         @SuppressWarnings("unchecked")
-        ActionListener<UpdateQueryGroupResponse> listener = mock(ActionListener.class);
+        ActionListener<AcknowledgedResponse> listener = mock(ActionListener.class);
         QueryGroupPersistenceService queryGroupPersistenceService = new QueryGroupPersistenceService(
             clusterService,
             QueryGroupTestUtils.settings(),

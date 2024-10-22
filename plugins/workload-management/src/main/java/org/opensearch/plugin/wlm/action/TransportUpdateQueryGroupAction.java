@@ -9,7 +9,6 @@
 package org.opensearch.plugin.wlm.action;
 
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.clustermanager.TransportClusterManagerNodeAction;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
@@ -21,7 +20,6 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.plugin.wlm.service.QueryGroupPersistenceService;
-import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
@@ -32,7 +30,7 @@ import java.io.IOException;
  *
  * @opensearch.experimental
  */
-public class TransportUpdateQueryGroupAction extends TransportClusterManagerNodeAction<UpdateQueryGroupRequest, UpdateQueryGroupResponse> {
+public class TransportUpdateQueryGroupAction extends TransportClusterManagerNodeAction<UpdateQueryGroupRequest, AcknowledgedResponse> {
 
     private final QueryGroupPersistenceService queryGroupPersistenceService;
 
@@ -71,7 +69,7 @@ public class TransportUpdateQueryGroupAction extends TransportClusterManagerNode
     protected void clusterManagerOperation(
         UpdateQueryGroupRequest request,
         ClusterState state,
-        ActionListener<UpdateQueryGroupResponse> listener
+        ActionListener<AcknowledgedResponse> listener
     ) throws Exception {
         queryGroupPersistenceService.updateInClusterStateMetadata(request, listener);
     }
@@ -82,8 +80,8 @@ public class TransportUpdateQueryGroupAction extends TransportClusterManagerNode
     }
 
     @Override
-    protected UpdateQueryGroupResponse read(StreamInput in) throws IOException {
-        return new UpdateQueryGroupResponse(in);
+    protected AcknowledgedResponse read(StreamInput in) throws IOException {
+        return new AcknowledgedResponse(in);
     }
 
     @Override

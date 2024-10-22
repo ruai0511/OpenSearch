@@ -14,23 +14,19 @@ import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.cluster.AckedClusterStateUpdateTask;
 import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.ClusterStateUpdateTask;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.metadata.QueryGroup;
 import org.opensearch.cluster.service.ClusterManagerTaskThrottler;
 import org.opensearch.cluster.service.ClusterManagerTaskThrottler.ThrottlingKey;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Priority;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.core.rest.RestStatus;
-import org.opensearch.plugin.wlm.action.CreateQueryGroupResponse;
+import org.opensearch.plugin.wlm.action.CreateQueryGroupRequest;
 import org.opensearch.plugin.wlm.action.DeleteQueryGroupRequest;
 import org.opensearch.plugin.wlm.action.UpdateQueryGroupRequest;
-import org.opensearch.plugin.wlm.action.UpdateQueryGroupResponse;
 import org.opensearch.wlm.MutableQueryGroupFragment;
 import org.opensearch.wlm.ResourceType;
 
@@ -122,14 +118,14 @@ public class QueryGroupPersistenceService {
 
     /**
      * Update cluster state to include the new QueryGroup
-     * @param queryGroup {@link QueryGroup} - the QueryGroup we're currently creating
-     * @param listener - ActionListener for CreateQueryGroupResponse
+     * @param request {@link CreateQueryGroupRequest} - create QueryGroup request
+     * @param listener - ActionListener for AcknowledgedResponse
      */
-    public void persistInClusterStateMetadata(QueryGroup queryGroup, ActionListener<CreateQueryGroupResponse> listener) {
-        clusterService.submitStateUpdateTask(SOURCE, new ClusterStateUpdateTask(Priority.NORMAL) {
+    public void persistInClusterStateMetadata(CreateQueryGroupRequest request, ActionListener<AcknowledgedResponse> listener) {
+        clusterService.submitStateUpdateTask(SOURCE, new AckedClusterStateUpdateTask<>(request, listener) {
             @Override
             public ClusterState execute(ClusterState currentState) throws Exception {
-                return saveQueryGroupInClusterState(queryGroup, currentState);
+                return saveQueryGroupInClusterState(request.getQueryGroup(), currentState);
             }
 
             @Override
@@ -138,15 +134,8 @@ public class QueryGroupPersistenceService {
             }
 
             @Override
-            public void onFailure(String source, Exception e) {
-                logger.warn("failed to save QueryGroup object due to error: {}, for source: {}.", e.getMessage(), source);
-                listener.onFailure(e);
-            }
-
-            @Override
-            public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
-                CreateQueryGroupResponse response = new CreateQueryGroupResponse(queryGroup, RestStatus.OK);
-                listener.onResponse(response);
+            protected AcknowledgedResponse newResponse(boolean acknowledged) {
+                return new AcknowledgedResponse(acknowledged);
             }
         });
     }
@@ -248,40 +237,24 @@ public class QueryGroupPersistenceService {
 
     /**
      * Modify cluster state to update the QueryGroup
-     * @param toUpdateGroup {@link QueryGroup} - the QueryGroup that we want to update
-     * @param listener - ActionListener for UpdateQueryGroupResponse
+     * @param toUpdateGroup {@link UpdateQueryGroupRequest} - update QueryGroup request
+     * @param listener - ActionListener for AcknowledgedResponse
      */
-    public void updateInClusterStateMetadata(UpdateQueryGroupRequest toUpdateGroup, ActionListener<UpdateQueryGroupResponse> listener) {
-        clusterService.submitStateUpdateTask(SOURCE, new ClusterStateUpdateTask(Priority.NORMAL) {
+    public void updateInClusterStateMetadata(UpdateQueryGroupRequest toUpdateGroup, ActionListener<AcknowledgedResponse> listener) {
+        clusterService.submitStateUpdateTask(SOURCE, new AckedClusterStateUpdateTask<>(toUpdateGroup, listener) {
             @Override
             public ClusterState execute(ClusterState currentState) {
                 return updateQueryGroupInClusterState(toUpdateGroup, currentState);
             }
 
             @Override
-            public ThrottlingKey getClusterManagerThrottlingKey() {
+            public ClusterManagerTaskThrottler.ThrottlingKey getClusterManagerThrottlingKey() {
                 return updateQueryGroupThrottlingKey;
             }
 
             @Override
-            public void onFailure(String source, Exception e) {
-                logger.warn("Failed to update QueryGroup due to error: {}, for source: {}", e.getMessage(), source);
-                listener.onFailure(e);
-            }
-
-            @Override
-            public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
-                String name = toUpdateGroup.getName();
-                Optional<QueryGroup> findUpdatedGroup = newState.metadata()
-                    .queryGroups()
-                    .values()
-                    .stream()
-                    .filter(group -> group.getName().equals(name))
-                    .findFirst();
-                assert findUpdatedGroup.isPresent();
-                QueryGroup updatedGroup = findUpdatedGroup.get();
-                UpdateQueryGroupResponse response = new UpdateQueryGroupResponse(updatedGroup, RestStatus.OK);
-                listener.onResponse(response);
+            protected AcknowledgedResponse newResponse(boolean acknowledged) {
+                return new AcknowledgedResponse(acknowledged);
             }
         });
     }

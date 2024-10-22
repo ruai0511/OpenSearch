@@ -9,13 +9,14 @@
 package org.opensearch.plugin.wlm.action;
 
 import org.opensearch.action.ActionType;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 
 /**
  * Transport action to create QueryGroup
  *
  * @opensearch.experimental
  */
-public class CreateQueryGroupAction extends ActionType<CreateQueryGroupResponse> {
+public class CreateQueryGroupAction extends ActionType<AcknowledgedResponse> {
 
     /**
      * An instance of CreateQueryGroupAction
@@ -31,6 +32,6 @@ public class CreateQueryGroupAction extends ActionType<CreateQueryGroupResponse>
      * Default constructor
      */
     private CreateQueryGroupAction() {
-        super(NAME, CreateQueryGroupResponse::new);
+        super(NAME, AcknowledgedResponse::new);
     }
 }

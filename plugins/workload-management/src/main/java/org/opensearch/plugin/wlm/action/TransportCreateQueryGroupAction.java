@@ -9,8 +9,8 @@
 package org.opensearch.plugin.wlm.action;
 
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.clustermanager.TransportClusterManagerNodeAction;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockException;
 import org.opensearch.cluster.block.ClusterBlockLevel;
@@ -20,7 +20,6 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.plugin.wlm.service.QueryGroupPersistenceService;
-import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
@@ -31,7 +30,7 @@ import java.io.IOException;
  *
  * @opensearch.experimental
  */
-public class TransportCreateQueryGroupAction extends TransportClusterManagerNodeAction<CreateQueryGroupRequest, CreateQueryGroupResponse> {
+public class TransportCreateQueryGroupAction extends TransportClusterManagerNodeAction<CreateQueryGroupRequest, AcknowledgedResponse> {
 
     private final QueryGroupPersistenceService queryGroupPersistenceService;
 
@@ -70,9 +69,9 @@ public class TransportCreateQueryGroupAction extends TransportClusterManagerNode
     protected void clusterManagerOperation(
         CreateQueryGroupRequest request,
         ClusterState state,
-        ActionListener<CreateQueryGroupResponse> listener
+        ActionListener<AcknowledgedResponse> listener
     ) throws Exception {
-        queryGroupPersistenceService.persistInClusterStateMetadata(request.getQueryGroup(), listener);
+        queryGroupPersistenceService.persistInClusterStateMetadata(request, listener);
     }
 
     @Override
@@ -81,8 +80,8 @@ public class TransportCreateQueryGroupAction extends TransportClusterManagerNode
     }
 
     @Override
-    protected CreateQueryGroupResponse read(StreamInput in) throws IOException {
-        return new CreateQueryGroupResponse(in);
+    protected AcknowledgedResponse read(StreamInput in) throws IOException {
+        return new AcknowledgedResponse(in);
     }
 
     @Override
