@@ -23,12 +23,15 @@ import java.io.IOException;
 import java.util.*;
 
 import static org.opensearch.cluster.metadata.QueryGroup.isValid;
+<<<<<<< HEAD
 
 /**
  * Represents a Rule in the OpenSearch cluster metadata.
  * A Rule contains attributes, a feature it belongs to, and metadata.
  * Rules are used to define constraints or behaviors related to query execution.
  */
+=======
+>>>>>>> 32ef7ca7a79 (modify rule schema)
 
 @ExperimentalApi
 public class Rule extends AbstractDiffable<Rule> implements ToXContentObject {
@@ -56,9 +59,9 @@ public class Rule extends AbstractDiffable<Rule> implements ToXContentObject {
 
         this._id = _id;
         this.attributeMap = attributeMap;
+        this.feature = feature;
         this.label = label;
         this.updatedAt = updatedAt;
-        this.feature = feature;
     }
 
     public Rule(StreamInput in) throws IOException {
@@ -133,8 +136,15 @@ public class Rule extends AbstractDiffable<Rule> implements ToXContentObject {
     }
 
     /**
+<<<<<<< HEAD
      * Enum representing possible attributes that a rule can have.
      * Attributes define constraints or behaviors for rules.
+=======
+     * This Feature enum contains the different feature names for each rule.
+     * For example, if we're creating a rule for WLM/QueryGroup, the rule will contain the line
+     * "query_group": "query_group_id",
+     * so the feature name would be "query_group" in this case.
+>>>>>>> 32ef7ca7a79 (modify rule schema)
      */
     @ExperimentalApi
     public enum Feature {
@@ -169,8 +179,12 @@ public class Rule extends AbstractDiffable<Rule> implements ToXContentObject {
     }
 
     /**
+<<<<<<< HEAD
      * Enum representing different features that a rule can be associated with.
      * Each feature defines a category of rules within OpenSearch.
+=======
+     * This RuleAttribute enum contains the attribute names for a rule.
+>>>>>>> 32ef7ca7a79 (modify rule schema)
      */
     @ExperimentalApi
     public enum RuleAttribute {
@@ -225,6 +239,23 @@ public class Rule extends AbstractDiffable<Rule> implements ToXContentObject {
 
     public static Diff<Rule> readDiff(final StreamInput in) throws IOException {
         return readDiffFrom(Rule::new, in);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Rule that = (Rule) o;
+        return Objects.equals(_id, that._id)
+            && Objects.equals(label, that.label)
+            && Objects.equals(feature, that.feature)
+            && Objects.equals(attributeMap, that.attributeMap)
+            && Objects.equals(updatedAt, that.updatedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(_id, label, feature, attributeMap, updatedAt);
     }
 
     /**
