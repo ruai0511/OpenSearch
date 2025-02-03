@@ -11,6 +11,7 @@ package org.opensearch.plugin.wlm.rule.service;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ResourceNotFoundException;
+import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -23,6 +24,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.*;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.plugin.wlm.rule.action.CreateRuleResponse;
+import org.opensearch.plugin.wlm.rule.action.DeleteRuleResponse;
 import org.opensearch.plugin.wlm.rule.action.GetRuleResponse;
 
 import java.io.IOException;
@@ -135,5 +137,18 @@ public class RulePersistenceService {
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
         listener.onResponse(new GetRuleResponse(rules, RestStatus.OK));
+    }
+
+    public void deleteRule(String id, ActionListener<DeleteRuleResponse> listener) {
+        if (id == null) {
+            listener.onFailure(new IllegalArgumentException("Rule ID must not be null"));
+            return;
+        }
+
+        DeleteRequest deleteRequest = new DeleteRequest(RULE_INDEX, id);
+        client.delete(deleteRequest, ActionListener.wrap(
+            deleteResponse -> listener.onResponse(new DeleteRuleResponse(RestStatus.OK)),
+            e -> listener.onFailure(e)
+        ));
     }
 }
