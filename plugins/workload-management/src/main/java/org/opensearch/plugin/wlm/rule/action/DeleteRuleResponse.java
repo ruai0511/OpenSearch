@@ -11,7 +11,6 @@ package org.opensearch.plugin.wlm.rule.action;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -24,14 +23,14 @@ import java.io.IOException;
  * @opensearch.experimental
  */
 public class DeleteRuleResponse extends ActionResponse implements ToXContent, ToXContentObject {
-    private final RestStatus restStatus;
+    private final boolean acknowledged;
 
     /**
      * Constructor for DeleteRuleResponse
-     * @param restStatus - The restStatus for the response
+     * @param acknowledged - Whether the deletion was successful
      */
-    public DeleteRuleResponse(RestStatus restStatus) {
-        this.restStatus = restStatus;
+    public DeleteRuleResponse(boolean acknowledged) {
+        this.acknowledged = acknowledged;
     }
 
     /**
@@ -39,26 +38,26 @@ public class DeleteRuleResponse extends ActionResponse implements ToXContent, To
      * @param in - A {@link StreamInput} object
      */
     public DeleteRuleResponse(StreamInput in) throws IOException {
-        restStatus = RestStatus.readFrom(in);
+        this.acknowledged = in.readBoolean();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        RestStatus.writeTo(out, restStatus);
+        out.writeBoolean(acknowledged);
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        builder.field("status", restStatus.name());
+        builder.field("acknowledged", acknowledged);
         builder.endObject();
         return builder;
     }
 
     /**
-     * restStatus getter
+     * acknowledged getter
      */
-    public RestStatus getRestStatus() {
-        return restStatus;
+    public boolean isAcknowledged() {
+        return acknowledged;
     }
 }

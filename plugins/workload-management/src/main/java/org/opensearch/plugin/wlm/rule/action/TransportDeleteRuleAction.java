@@ -21,6 +21,11 @@ import org.opensearch.transport.TransportService;
  *
  * @opensearch.experimental
  */
+/**
+ * Transport action to delete a Rule
+ *
+ * @opensearch.experimental
+ */
 public class TransportDeleteRuleAction extends HandledTransportAction<DeleteRuleRequest, DeleteRuleResponse> {
 
     private final RulePersistenceService rulePersistenceService;
@@ -34,9 +39,9 @@ public class TransportDeleteRuleAction extends HandledTransportAction<DeleteRule
      */
     @Inject
     public TransportDeleteRuleAction(
-        TransportService transportService,
-        ActionFilters actionFilters,
-        RulePersistenceService rulePersistenceService
+            TransportService transportService,
+            ActionFilters actionFilters,
+            RulePersistenceService rulePersistenceService
     ) {
         super(DeleteRuleAction.NAME, transportService, actionFilters, DeleteRuleRequest::new);
         this.rulePersistenceService = rulePersistenceService;
@@ -44,6 +49,10 @@ public class TransportDeleteRuleAction extends HandledTransportAction<DeleteRule
 
     @Override
     protected void doExecute(Task task, DeleteRuleRequest request, ActionListener<DeleteRuleResponse> listener) {
-        rulePersistenceService.deleteRule(request.get_id(), listener);
+        rulePersistenceService.deleteRule(request.get_id(), ActionListener.wrap(
+                response -> listener.onResponse(new DeleteRuleResponse(true)),
+                listener::onFailure
+        ));
     }
 }
+

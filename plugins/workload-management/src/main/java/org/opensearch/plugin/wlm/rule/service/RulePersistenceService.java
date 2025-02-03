@@ -12,6 +12,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.delete.DeleteResponse;
+import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -145,10 +147,26 @@ public class RulePersistenceService {
             return;
         }
 
-        DeleteRequest deleteRequest = new DeleteRequest(RULE_INDEX, id);
-        client.delete(deleteRequest, ActionListener.wrap(
-            deleteResponse -> listener.onResponse(new DeleteRuleResponse(RestStatus.OK)),
-            e -> listener.onFailure(e)
+        // Check if the document exists before deleting
+        GetRequest getRequest = new GetRequest(RULE_INDEX, id);
+        client.get(getRequest, ActionListener.wrap(
+            getResponse -> {
+                if (!getResponse.isExists()) {
+                    listener.onFailure(new ResourceNotFoundException("The rule with id " + id + " doesn't exist"));
+                } else {
+                    // Proceed with deletion
+                    DeleteRequest deleteRequest = new DeleteRequest(RULE_INDEX, id);
+                    client.delete(deleteRequest, ActionListener.wrap(
+                        deleteResponse -> {
+                            boolean acknowledged = deleteResponse.getResult() == DeleteResponse.Result.DELETED;
+                            listener.onResponse(new DeleteRuleResponse(acknowledged));
+                        },
+                        listener::onFailure
+                    ));
+                }
+            },
+            listener::onFailure
         ));
     }
+
 }
