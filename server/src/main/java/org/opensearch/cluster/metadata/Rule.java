@@ -24,6 +24,12 @@ import java.util.*;
 
 import static org.opensearch.cluster.metadata.QueryGroup.isValid;
 
+/**
+ * Represents a Rule in the OpenSearch cluster metadata.
+ * A Rule contains attributes, a feature it belongs to, and metadata.
+ * Rules are used to define constraints or behaviors related to query execution.
+ */
+
 @ExperimentalApi
 public class Rule extends AbstractDiffable<Rule> implements ToXContentObject {
     private final String _id;
@@ -126,6 +132,10 @@ public class Rule extends AbstractDiffable<Rule> implements ToXContentObject {
         return attributeMap;
     }
 
+    /**
+     * Enum representing possible attributes that a rule can have.
+     * Attributes define constraints or behaviors for rules.
+     */
     @ExperimentalApi
     public enum Feature {
         QUERY_GROUP("query_group");
@@ -158,6 +168,10 @@ public class Rule extends AbstractDiffable<Rule> implements ToXContentObject {
         }
     }
 
+    /**
+     * Enum representing different features that a rule can be associated with.
+     * Each feature defines a category of rules within OpenSearch.
+     */
     @ExperimentalApi
     public enum RuleAttribute {
         INDEX_PATTERN("index_pattern");
