@@ -27,15 +27,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import static org.opensearch.cluster.metadata.QueryGroup.isValid;
-<<<<<<< HEAD
-
-/**
- * Represents a Rule in the OpenSearch cluster metadata.
- * A Rule contains attributes, a feature it belongs to, and metadata.
- * Rules are used to define constraints or behaviors related to query execution.
- */
-=======
->>>>>>> 32ef7ca7a79 (modify rule schema)
 
 /**
  * The class defines the Rule schema and represents a Rule in the system for automatic query tagging.
@@ -151,20 +142,8 @@ public class Rule implements Writeable, ToXContentObject {
     }
 
     /**
-<<<<<<<< HEAD:server/src/main/java/org/opensearch/cluster/metadata/Rule.java
-<<<<<<< HEAD
-     * Enum representing possible attributes that a rule can have.
-     * Attributes define constraints or behaviors for rules.
-=======
-     * This Feature enum contains the different feature names for each rule.
-     * For example, if we're creating a rule for WLM/QueryGroup, the rule will contain the line
-     * "query_group": "query_group_id",
-     * so the feature name would be "query_group" in this case.
->>>>>>> 32ef7ca7a79 (modify rule schema)
-========
      * This enum enumerates the features that can use the Rule Based Auto-tagging
      * @opensearch.experimental
->>>>>>>> 134f7208edc (modify UT based on new schema):server/src/main/java/org/opensearch/wlm/Rule.java
      */
     public enum Feature {
         QUERY_GROUP("query_group", Set.of(RuleAttribute.INDEX_PATTERN));
@@ -203,16 +182,8 @@ public class Rule implements Writeable, ToXContentObject {
     }
 
     /**
-<<<<<<< HEAD
-     * Enum representing different features that a rule can be associated with.
-     * Each feature defines a category of rules within OpenSearch.
-=======
      * This RuleAttribute enum contains the attribute names for a rule.
-<<<<<<<< HEAD:server/src/main/java/org/opensearch/cluster/metadata/Rule.java
->>>>>>> 32ef7ca7a79 (modify rule schema)
-========
      * @opensearch.experimental
->>>>>>>> 134f7208edc (modify UT based on new schema):server/src/main/java/org/opensearch/wlm/Rule.java
      */
     public enum RuleAttribute {
         INDEX_PATTERN("index_pattern");
