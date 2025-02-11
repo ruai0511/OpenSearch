@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static org.opensearch.wlm.Rule._ID_STRING;
+
 /**
  * Response for the get API for Rule
  * @opensearch.experimental
@@ -61,7 +63,7 @@ public class GetRuleResponse extends ActionResponse implements ToXContent, ToXCo
         builder.startObject();
         builder.startArray("rules");
         for (Map.Entry<String, Rule> entry : rules.entrySet()) {
-            entry.getValue().toXContent(builder, new MapParams(Map.of("_id", entry.getKey())));
+            entry.getValue().toXContent(builder, new MapParams(Map.of(_ID_STRING, entry.getKey())));
         }
         builder.endArray();
         builder.endObject();

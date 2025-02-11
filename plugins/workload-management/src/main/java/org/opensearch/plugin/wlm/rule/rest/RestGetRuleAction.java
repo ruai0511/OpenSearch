@@ -17,11 +17,20 @@ import org.opensearch.plugin.wlm.querygroup.action.GetQueryGroupRequest;
 import org.opensearch.plugin.wlm.rule.action.*;
 import org.opensearch.rest.*;
 import org.opensearch.rest.action.RestResponseListener;
+import org.opensearch.telemetry.tracing.AttributeNames;
+import org.opensearch.wlm.Rule;
+import org.opensearch.wlm.Rule.RuleAttribute;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Arrays;
+import java.util.HashSet;
 
-import static org.opensearch.rest.RestRequest.Method.*;
+import static org.opensearch.rest.RestRequest.Method.GET;
+import static org.opensearch.wlm.Rule._ID_STRING;
 
 /**
  * Rest action to get a Rule
@@ -49,7 +58,15 @@ public class RestGetRuleAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        final GetRuleRequest getRuleRequest = new GetRuleRequest(request.param("_id"));
+        Map<RuleAttribute, Set<String>> attributeFilters = new HashMap<>();
+        for (String attributeName : request.params().keySet()) {
+            if (attributeName.equals(_ID_STRING)) {
+                continue;
+            }
+            String[] valuesArray = request.param(attributeName).split(",");
+            attributeFilters.put(RuleAttribute.fromName(attributeName), new HashSet<>(Arrays.asList(valuesArray)));
+        }
+        final GetRuleRequest getRuleRequest = new GetRuleRequest(request.param(_ID_STRING), attributeFilters);
         return channel -> client.execute(GetRuleAction.INSTANCE, getRuleRequest, getRuleResponse(channel));
     }
 

@@ -19,6 +19,7 @@ import org.opensearch.action.search.SearchRequestBuilder;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Client;
 import org.opensearch.client.FilterClient;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.shard.ShardId;
@@ -29,6 +30,7 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.wlm.Rule;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -44,8 +46,8 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
      */
     public void testCreateRule() throws IOException {
         ActionListener<CreateRuleResponse> listener = mock(ActionListener.class);
-        Client client = mock(Client.class);
-        RulePersistenceService rulePersistenceService = new RulePersistenceService(client);
+        RulePersistenceService rulePersistenceService = setUpRulePersistenceService();
+        Client client = rulePersistenceService.getClient();
         IndexResponse indexResponse = new IndexResponse(new ShardId(RULE_INDEX, "uuid", 0), "id", 1, 1, 1, true);
         doAnswer(invocation -> {
             ActionListener<IndexResponse> actionListener = invocation.getArgument(1);
@@ -53,7 +55,7 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
             return null;
         }).when(client).index(any(IndexRequest.class), any(ActionListener.class));
 
-        rulePersistenceService.createRule(ruleOne, listener);
+        rulePersistenceService.persistRule(ruleOne, listener);
         verify(client).index(any(IndexRequest.class), any(ActionListener.class));
         ArgumentCaptor<CreateRuleResponse> responseCaptor = ArgumentCaptor.forClass(CreateRuleResponse.class);
         verify(listener).onResponse(responseCaptor.capture());
@@ -70,8 +72,8 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
     public void testGetRuleById() throws IOException {
         String ruleSource = ruleOne.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).toString();
         ActionListener<GetRuleResponse> listener = mock(ActionListener.class);
-        Client client = mock(Client.class);
-        RulePersistenceService rulePersistenceService = new RulePersistenceService(client);
+        RulePersistenceService rulePersistenceService = setUpRulePersistenceService();
+        Client client = rulePersistenceService.getClient();
         GetRequestBuilder getRequestBuilder = mock(GetRequestBuilder.class);
         GetResponse getResponse = mock(GetResponse.class);
 
@@ -84,7 +86,7 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
             return null;
         }).when(getRequestBuilder).execute(any(ActionListener.class));
 
-        rulePersistenceService.getRule(_ID_ONE, listener);
+        rulePersistenceService.getRule(_ID_ONE, new HashMap<>(), listener);
 
         ArgumentCaptor<GetRuleResponse> captor = ArgumentCaptor.forClass(GetRuleResponse.class);
         verify(listener).onResponse(captor.capture());
@@ -96,8 +98,8 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
 
     public void testGetRuleByIdNotFound() {
         String nonExistentRuleId = "non-existent-rule";
-        Client client = mock(Client.class);
-        RulePersistenceService rulePersistenceService = new RulePersistenceService(client);
+        RulePersistenceService rulePersistenceService = setUpRulePersistenceService();
+        Client client = rulePersistenceService.getClient();
         GetRequestBuilder getRequestBuilder = mock(GetRequestBuilder.class);
         GetResponse getResponse = mock(GetResponse.class);
         ActionListener<GetRuleResponse> listener = mock(ActionListener.class);
@@ -111,7 +113,7 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
             return null;
         }).when(getRequestBuilder).execute(any(ActionListener.class));
 
-        rulePersistenceService.getRule(nonExistentRuleId, listener);
+        rulePersistenceService.getRule(nonExistentRuleId, new HashMap<>(), listener);
 
         ArgumentCaptor<Exception> captor = ArgumentCaptor.forClass(Exception.class);
         verify(listener).onFailure(captor.capture());
