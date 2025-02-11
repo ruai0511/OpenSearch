@@ -12,13 +12,16 @@ import org.joda.time.Instant;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeRequest;
 import org.opensearch.wlm.Rule;
-import org.opensearch.wlm.Rule.Builder;
+import org.opensearch.wlm.Rule.RuleAttribute;
 import org.opensearch.common.UUIDs;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentParser;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Map;
 
 /**
  * A request for get Rule
@@ -26,13 +29,16 @@ import java.io.IOException;
  */
 public class GetRuleRequest extends ClusterManagerNodeRequest<GetRuleRequest> {
     private final String _id;
+    private final Map<RuleAttribute, Set<String>> attributeFilters;
 
     /**
      * Constructor for GetRuleRequest
      * @param _id - Rule _id that we want to get
+     * @param attributeFilters - Attributes that we want to filter on
      */
-    public GetRuleRequest(String _id) {
+    public GetRuleRequest(String _id, Map<RuleAttribute, Set<String>> attributeFilters) {
         this._id = _id;
+        this.attributeFilters = attributeFilters;
     }
 
     /**
@@ -42,6 +48,7 @@ public class GetRuleRequest extends ClusterManagerNodeRequest<GetRuleRequest> {
     public GetRuleRequest(StreamInput in) throws IOException {
         super(in);
         _id = in.readOptionalString();
+        attributeFilters = in.readMap((i) -> RuleAttribute.fromName(i.readString()), i -> new HashSet<>(i.readStringList()));
     }
 
     @Override
@@ -53,6 +60,7 @@ public class GetRuleRequest extends ClusterManagerNodeRequest<GetRuleRequest> {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeOptionalString(_id);
+        out.writeMap(attributeFilters, RuleAttribute::writeTo, StreamOutput::writeStringCollection);
     }
 
     /**
@@ -60,5 +68,12 @@ public class GetRuleRequest extends ClusterManagerNodeRequest<GetRuleRequest> {
      */
     public String get_id() {
         return _id;
+    }
+
+    /**
+     * attributeFilters getter
+     */
+    public Map<RuleAttribute, Set<String>> getAttributeFilters() {
+        return attributeFilters;
     }
 }
