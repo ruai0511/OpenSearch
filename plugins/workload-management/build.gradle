@@ -8,15 +8,695 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
+import org.opensearch.gradle.testclusters.OpenSearchCluster
+
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSession
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.security.GeneralSecurityException
+import java.security.cert.X509Certificate
+import java.util.concurrent.Callable
+import org.opensearch.gradle.test.RestIntegTestTask
+import org.opensearch.gradle.info.BuildParams
+
+import java.util.concurrent.TimeUnit
+import java.util.function.Predicate
+import java.util.stream.Collectors
+
+buildscript {
+  ext {
+    opensearch_group = "org.opensearch"
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+    opensearch_version = System.getProperty("opensearch.version", "3.0.0-SNAPSHOT")
+    buildVersionQualifier = System.getProperty("build.version_qualifier", "")
+    // 3.0.0-SNAPSHOT -> 3.0.0.0-SNAPSHOT
+    version_tokens = opensearch_version.tokenize('-')
+    opensearch_build = version_tokens[0] + '.0'
+    plugin_no_snapshot = opensearch_build
+    if (buildVersionQualifier) {
+      opensearch_build += "-${buildVersionQualifier}"
+      plugin_no_snapshot += "-${buildVersionQualifier}"
+    }
+    if (isSnapshot) {
+      opensearch_build += "-SNAPSHOT"
+    }
+    opensearch_no_snapshot = opensearch_version.replace("-SNAPSHOT","")
+    common_utils_version = System.getProperty("common_utils.version", opensearch_build)
+    jacksonVersion = "2.18.2"
+    // gradle build won't print logs during test by default unless there is a failure.
+    // It is useful to record intermediately information like prediction precision and recall.
+    // This option turn on log printing during tests.
+    printLogs = "true" == System.getProperty("test.logs", "false")
+  }
+
+  repositories {
+    mavenLocal()
+    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+    mavenCentral()
+    maven { url "https://plugins.gradle.org/m2/" }
+  }
+
+  dependencies {
+    classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
+  }
+}
+
+plugins {
+  id 'com.netflix.nebula.ospackage' version "11.5.0"
+  id "com.diffplug.spotless" version "6.25.0"
+  id 'java-library'
+  id "de.undercouch.download" version "5.6.0"
+}
+
+tasks.withType(JavaCompile) {
+  options.encoding = "UTF-8"
+}
+tasks.withType(Test) {
+  systemProperty "file.encoding", "UTF-8"
+  jvmArgs("--add-opens", "java.base/java.time=ALL-UNNAMED")
+  jvmArgs("--add-opens", "java.base/java.util.stream=ALL-UNNAMED")
+
+  // PowerMock related tests like SearchFeatureDaoTests relies on modifying the bytecode of
+  // classes during runtime, which can conflict with the module system introduced in Java 9.
+  // To resolve this issue, we use the --add-opens option to explicitly open the java.util
+  // and java.lang package to PowerMock. This option allows PowerMock to access non-public
+  // members of the java.util and java.lang package.
+  jvmArgs('--add-opens', 'java.base/java.util=ALL-UNNAMED')
+  jvmArgs('--add-opens', 'java.base/java.lang=ALL-UNNAMED')
+}
+tasks.withType(Javadoc) {
+  options.encoding = 'UTF-8'
+}
+tasks.withType(AbstractArchiveTask).configureEach {
+  preserveFileTimestamps = false
+  reproducibleFileOrder = true
+}
+
+repositories {
+  mavenLocal()
+  maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+  mavenCentral()
+  maven { url "https://plugins.gradle.org/m2/" }
+  maven { url "https://ci.opensearch.org/ci/dbc/snapshots/lucene/" }
+}
+configurations {
+  zipArchive
+  //hamcrest-core needs to be ignored since it causes jar hell exception due to a conflict during testing
+  testImplementation {
+    exclude group: 'org.hamcrest', module: 'hamcrest-core'
+  }
+  opensearchPlugin
+}
+
+dependencies {
+  implementation "org.opensearch:common-utils:${common_utils_version}"
+  opensearchPlugin "org.opensearch.plugin:opensearch-security:${opensearch_build}@zip"
+  implementation group: 'com.google.code.gson', name: 'gson', version: '2.11.0'
+}
 
 apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.java-rest-test'
 apply plugin: 'opensearch.internal-cluster-test'
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'opensearch.opensearchplugin'
+apply plugin: 'opensearch.testclusters'
+apply plugin: 'base'
+apply plugin: 'jacoco'
+apply plugin: 'eclipse'
+apply plugin: 'opensearch.pluginzip'
+
+ext {
+  isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+  buildVersionQualifier = System.getProperty("build.version_qualifier")
+}
+
+allprojects {
+  group = 'org.opensearch'
+
+  version = "${opensearch_build}"
+
+  plugins.withId('jacoco') {
+    jacoco.toolVersion = '0.8.12'
+  }
+}
+
+java {
+  targetCompatibility = JavaVersion.VERSION_21
+  sourceCompatibility = JavaVersion.VERSION_21
+}
+
+ext {
+  projectSubstitutions = [:]
+  licenseFile = rootProject.file('LICENSE.txt')
+  noticeFile = rootProject.file('NOTICE.txt')
+
+  ['esnode.pem', 'esnode-key.pem', 'kirk.pem', 'kirk-key.pem', 'root-ca.pem', 'sample.pem', 'test-kirk.jks'].forEach { file ->
+    File local = getLayout().getBuildDirectory().file(file).get().getAsFile()
+    download.run {
+      src "https://raw.githubusercontent.com/opensearch-project/security/refs/heads/main/bwc-test/src/test/resources/security/" + file
+      dest local
+      overwrite false
+    }
+    processResources {
+      from(local)
+    }
+  }
+}
 
 opensearchplugin {
   description = 'OpenSearch Workload Management Plugin.'
   classname = 'org.opensearch.plugin.wlm.WorkloadManagementPlugin'
 }
 
-dependencies {
+// Handle case where older versions of esplugin doesn't expose the joda time version it uses
+configurations.all {
+  if (it.state != Configuration.State.UNRESOLVED) return
+  resolutionStrategy {
+    force "joda-time:joda-time:${versions.joda}"
+    force "commons-logging:commons-logging:${versions.commonslogging}"
+    force "org.apache.httpcomponents.core5:httpcore5:${versions.httpcore5}"
+    force "org.apache.httpcomponents.client5:httpclient5:${versions.httpclient5}"
+    force "commons-codec:commons-codec:${versions.commonscodec}"
+
+    force "org.mockito:mockito-core:5.14.2"
+    force "org.objenesis:objenesis:3.4"
+    force "net.bytebuddy:byte-buddy:1.15.10"
+    force "net.bytebuddy:byte-buddy-agent:1.15.10"
+    force "com.google.code.gson:gson:2.11.0"
+    force "junit:junit:4.13.2"
+
+    force "com.google.guava:guava:32.1.3-jre" // CVE for 31.1
+    force("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+    force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0
+  }
+}
+
+
+publishing {
+  publications {
+    pluginZip(MavenPublication) { publication ->
+      pom {
+        name = opensearchplugin.name
+        description = opensearchplugin.description
+        groupId = "org.opensearch.plugin"
+        licenses {
+          license {
+            name = "The Apache License, Version 2.0"
+            url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+          }
+        }
+        developers {
+          developer {
+            name = "OpenSearch"
+            url = "https://github.com/opensearch-project/opensearch/"
+          }
+        }
+      }
+    }
+  }
+
+  repositories {
+    maven {
+      name = "Snapshots"
+      url = "https://aws.oss.sonatype.org/content/repositories/snapshots"
+      credentials {
+        username "$System.env.SONATYPE_USERNAME"
+        password "$System.env.SONATYPE_PASSWORD"
+      }
+    }
+  }
+}
+
+// Allow test cases to be named Tests without having to be inherited from LuceneTestCase.
+// see https://github.com/elastic/elasticsearch/blob/323f312bbc829a63056a79ebe45adced5099f6e6/buildSrc/src/main/java/org/elasticsearch/gradle/precommit/TestingConventionsTasks.java
+testingConventions.enabled = false
+
+licenseHeaders.enabled = true
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
+loggerUsageCheck.enabled = false
+
+// See package README.md for details on using these tasks.
+def _numNodes = findProperty('numNodes') as Integer ?: 1
+
+def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
+opensearch_tmp_dir.mkdirs()
+test {
+  include '**/*Tests.class'
+  systemProperty 'tests.security.manager', 'false'
+}
+
+task integTest(type: RestIntegTestTask) {
+  description = "Run tests against a cluster"
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+}
+tasks.named("check").configure { dependsOn(integTest) }
+
+integTest {
+  dependsOn "bundlePlugin"
+  systemProperty 'tests.security.manager', 'false'
+  systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+
+  systemProperty "https", System.getProperty("https")
+  systemProperty "user", System.getProperty("user")
+  systemProperty "password", System.getProperty("password")
+
+  // The 'doFirst' delays till execution time.
+  doFirst {
+    // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
+    // use longer timeouts for requests.
+    def isDebuggingCluster = getDebug() || System.getProperty("test.debug") != null
+    systemProperty 'cluster.debug', isDebuggingCluster
+    // Set number of nodes system property to be used in tests
+    systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+    // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+    // not being written, the waitForAllConditions ensures it's written
+    getClusters().forEach { cluster ->
+      cluster.waitForAllConditions()
+    }
+    println 'Running in CI mode:' + BuildParams.isCi()
+  }
+
+  // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+  if (System.getProperty("test.debug") != null) {
+    jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+  }
+
+  if (printLogs) {
+    testLogging {
+      showStandardStreams = true
+      outputs.upToDateWhen {false}
+    }
+  }
+}
+
+ext.resolvePluginFile = { pluginId ->
+  return new Callable<RegularFile>() {
+    @Override
+    RegularFile call() throws Exception {
+      return new RegularFile() {
+        @Override
+        File getAsFile() {
+          return configurations.opensearchPlugin.resolvedConfiguration.resolvedArtifacts
+            .find { ResolvedArtifact f ->
+              f.name.startsWith(pluginId)
+            }
+            .file
+        }
+      }
+    }
+  }
+}
+def securityPluginFile = resolvePluginFile("opensearch-security")
+
+// === Setup security test ===
+// This flag indicates the existence of security plugin
+def securityEnabled = System.getProperty("security", "false") == "true" || System.getProperty("https", "false") == "true"
+testClusters.integTest {
+  testDistribution = "ARCHIVE"
+  // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
+  if (_numNodes > 1) numberOfNodes = _numNodes
+  // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
+  // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
+  // since we also support multi node integration tests we increase debugPort per node
+  if (System.getProperty("opensearch.debug") != null) {
+    def debugPort = 5005
+    nodes.forEach { node ->
+      node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=*:${debugPort}")
+      debugPort += 1
+    }
+  }
+  plugin(project.tasks.bundlePlugin.archiveFile)
+  if (securityEnabled) {
+    plugin(provider(securityPluginFile))
+  }
+
+  nodes.each { node ->
+    def plugins = node.plugins
+    def firstPlugin = plugins.get(0)
+    plugins.remove(0)
+    plugins.add(firstPlugin)
+
+    if (securityEnabled) {
+      node.extraConfigFile("kirk.pem", file("build/resources/main/kirk.pem"))
+      node.extraConfigFile("kirk-key.pem", file("build/resources/main/kirk-key.pem"))
+      node.extraConfigFile("esnode.pem", file("build/resources/main/esnode.pem"))
+      node.extraConfigFile("esnode-key.pem", file("build/resources/main/esnode-key.pem"))
+      node.extraConfigFile("root-ca.pem", file("build/resources/main/root-ca.pem"))
+      node.setting("plugins.security.ssl.transport.pemcert_filepath", "esnode.pem")
+      node.setting("plugins.security.ssl.transport.pemkey_filepath", "esnode-key.pem")
+      node.setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
+      node.setting("plugins.security.ssl.transport.enforce_hostname_verification", "false")
+      node.setting("plugins.security.ssl.http.enabled", "true")
+      node.setting("plugins.security.ssl.http.pemcert_filepath", "esnode.pem")
+      node.setting("plugins.security.ssl.http.pemkey_filepath", "esnode-key.pem")
+      node.setting("plugins.security.ssl.http.pemtrustedcas_filepath", "root-ca.pem")
+      node.setting("plugins.security.allow_unsafe_democertificates", "true")
+      node.setting("plugins.security.allow_default_init_securityindex", "true")
+      node.setting("plugins.security.authcz.admin_dn", "\n - CN=kirk,OU=client,O=client,L=test,C=de")
+      node.setting("plugins.security.audit.type", "internal_opensearch")
+      node.setting("plugins.security.enable_snapshot_restore_privilege", "true")
+      node.setting("plugins.security.check_snapshot_restore_write_privileges", "true")
+      node.setting("plugins.security.restapi.roles_enabled", "[\"all_access\", \"security_rest_api_access\"]")
+      node.setting("plugins.security.system_indices.enabled", "true")
+      // node.setting("plugins.security.system_indices.indices", "[\".opendistro-ism-config\"]")
+    }
+  }
+}
+
+// Re-write WaitForHttpResource with updated code to support security plugin use case
+class WaitForClusterYellow {
+
+  private URL url
+  private String username
+  private String password
+  Set<Integer> validResponseCodes = Collections.singleton(200)
+
+  WaitForClusterYellow(String protocol, String host, int numberOfNodes) throws MalformedURLException {
+    this(new URL(protocol + "://" + host + "/_cluster/health?wait_for_nodes=>=" + numberOfNodes + "&wait_for_status=yellow"))
+  }
+
+  WaitForClusterYellow(URL url) {
+    this.url = url
+  }
+
+  boolean wait(int durationInMs) throws GeneralSecurityException, InterruptedException, IOException {
+    final long waitUntil = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(durationInMs)
+    final long sleep = 100
+
+    IOException failure = null
+    while (true) {
+      try {
+        checkResource()
+        return true
+      } catch (IOException e) {
+        failure = e
+      }
+      if (System.nanoTime() < waitUntil) {
+        Thread.sleep(sleep)
+      } else {
+        throw failure
+      }
+    }
+  }
+
+  void setUsername(String username) {
+    this.username = username
+  }
+
+  void setPassword(String password) {
+    this.password = password
+  }
+
+  void checkResource() throws IOException {
+    final HttpURLConnection connection = buildConnection()
+    connection.connect()
+    final Integer response = connection.getResponseCode()
+    if (validResponseCodes.contains(response)) {
+      return
+    } else {
+      throw new IOException(response + " " + connection.getResponseMessage())
+    }
+  }
+
+  HttpURLConnection buildConnection() throws IOException {
+    final HttpURLConnection connection = (HttpURLConnection) this.@url.openConnection()
+
+    if (connection instanceof HttpsURLConnection) {
+      TrustManager[] trustAllCerts = [new X509TrustManager() {
+        X509Certificate[] getAcceptedIssuers() {
+          return null
+        }
+
+        void checkClientTrusted(X509Certificate[] certs, String authType) {
+        }
+
+        void checkServerTrusted(X509Certificate[] certs, String authType) {
+        }
+      }
+      ] as TrustManager[]
+      SSLContext sc = SSLContext.getInstance("SSL")
+      sc.init(null, trustAllCerts, new java.security.SecureRandom())
+      connection.setSSLSocketFactory(sc.getSocketFactory())
+      // Create all-trusting host name verifier
+      HostnameVerifier allHostsValid = new HostnameVerifier() {
+        boolean verify(String hostname, SSLSession session) {
+          return true
+        }
+      }
+      // Install the all-trusting host verifier
+      connection.setHostnameVerifier(allHostsValid)
+    }
+
+    configureBasicAuth(connection)
+    connection.setRequestMethod("GET")
+    return connection
+  }
+
+  void configureBasicAuth(HttpURLConnection connection) {
+    if (username != null) {
+      if (password == null) {
+        throw new IllegalStateException("Basic Auth user [" + username + "] has been set, but no password has been configured")
+      }
+      connection.setRequestProperty(
+        "Authorization",
+        "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8))
+      )
+    }
+  }
+
+}
+
+def waitForClusterSetup(OpenSearchCluster cluster, Boolean securityEnabled) {
+  cluster.@waitConditions.clear()
+  String unicastUris = cluster.nodes.stream().flatMap { node ->
+    node.getAllTransportPortURI().stream()
+  }.collect(Collectors.joining("\n"))
+  cluster.nodes.forEach { node ->
+    try {
+      Files.write(node.getConfigDir().resolve("unicast_hosts.txt"), unicastUris.getBytes(StandardCharsets.UTF_8))
+    } catch (IOException e) {
+      throw new java.io.UncheckedIOException("Failed to write configuation files for " + this, e)
+    }
+  }
+
+  Predicate pred = {
+    String protocol = securityEnabled ? "https" : "http"
+    String host = System.getProperty("tests.cluster", cluster.getFirstNode().getHttpSocketURI())
+    WaitForClusterYellow wait = new WaitForClusterYellow(protocol, host, cluster.nodes.size())
+    wait.setUsername(System.getProperty("user", "admin"))
+    wait.setPassword(System.getProperty("password", "admin"))
+    return wait.wait(180000)
+  }
+
+  cluster.@waitConditions.put("cluster health yellow", pred)
+  cluster.waitForAllConditions()
+}
+
+integTest {
+  systemProperty 'tests.security.manager', 'false'
+  systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+  systemProperty 'buildDir', buildDir.path
+  systemProperty "https", System.getProperty("https")
+  systemProperty "security", System.getProperty("security")
+  systemProperty "user", System.getProperty("user", "admin")
+  systemProperty "password", "admin"
+  // defaulting to admin since security plugin's demo config tool is not used
+  // Tell the test JVM if the cluster JVM is running under a debugger so that tests can use longer timeouts for
+  // requests. The 'doFirst' delays reading the debug setting on the cluster till execution time.
+  doFirst {
+    systemProperty 'cluster.debug', getDebug()
+    // Set number of nodes system property to be used in tests
+    systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+    // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+    // not being written, the waitForAllConditions ensures it's written
+    getClusters().forEach { cluster ->
+      waitForClusterSetup(cluster, securityEnabled)
+    }
+  }
+
+  // The -Dcluster.debug option makes the cluster debuggable, this makes the tests debuggable
+  if (System.getProperty("test.debug") != null) {
+    jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
+  }
+}
+
+task integTestRemote(type: RestIntegTestTask) {
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  systemProperty 'tests.security.manager', 'false'
+  systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+
+  systemProperty "https", System.getProperty("https")
+  systemProperty "user", System.getProperty("user")
+  systemProperty "password", System.getProperty("password")
+}
+
+List<Provider<RegularFile>> plugins = []
+
+run {
+  doFirst {
+    // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
+    // not being written, the waitForAllConditions ensures it's written
+    getClusters().forEach { cluster ->
+      cluster.waitForAllConditions()
+    }
+  }
+
+  useCluster testClusters.integTest
+}
+
+evaluationDependsOnChildren()
+
+task release(type: Copy, group: 'build') {
+  dependsOn allprojects*.tasks.build
+  from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
+  into "build/plugins/workload-management"
+  includeEmptyDirs = false
+  // ES versions < 6.3 have a top-level opensearch directory inside the plugin zip which we need to remove
+  eachFile { it.path = it.path - "opensearch/" }
+}
+
+def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
+def usingMultiNode = project.properties.containsKey('numNodes')
+// Only apply jacoco test coverage if we are running a local single node cluster
+
+List<String> jacocoExclusions = []
+
+jacocoTestCoverageVerification {
+  dependsOn(jacocoTestReport)
+  executionData.from = [integTest.jacoco.destinationFile, test.jacoco.destinationFile]
+  violationRules {
+    rule {
+      element = 'CLASS'
+      excludes = jacocoExclusions
+      limit {
+        counter = 'BRANCH'
+        minimum = 0.60
+      }
+    }
+    rule {
+      element = 'CLASS'
+      excludes = jacocoExclusions
+      limit {
+        counter = 'LINE'
+        value = 'COVEREDRATIO'
+        minimum = 0.75
+      }
+    }
+  }
+}
+
+check.dependsOn jacocoTestCoverageVerification
+jacocoTestCoverageVerification.dependsOn jacocoTestReport
+
+compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
+
+apply plugin: 'com.netflix.nebula.ospackage'
+
+// This is afterEvaluate because the bundlePlugin ZIP task is updated afterEvaluate and changes the ZIP name to match the plugin name
+afterEvaluate {
+  ospackage {
+    packageName = "${name}"
+    release = isSnapshot ? "0.1" : '1'
+    version = "${project.version}" - "-SNAPSHOT"
+
+    into '/usr/share/opensearch/plugins'
+    from(zipTree(bundlePlugin.archiveFile)) {
+      into opensearchplugin.name
+    }
+
+    user 'root'
+    permissionGroup 'root'
+    fileMode 0644
+    dirMode 0755
+
+    requires('opensearch', versions.opensearch, EQUAL)
+    packager = 'Amazon'
+    vendor = 'Amazon'
+    os = 'LINUX'
+    prefix '/usr'
+
+    license 'ASL-2.0'
+    maintainer 'OpenSearch <opensearch@amazon.com>'
+    url 'https://opensearch.org/downloads.html'
+    summary '''
+         Workload Management plugin for OpenSearch.
+         Reference documentation can be found at https://opensearch.org/docs/latest/tuning-your-cluster/availability-and-recovery/workload-management/wlm-feature-overview/.
+    '''.stripIndent().replace('\n', ' ').trim()
+  }
+
+  buildRpm {
+    arch = 'NOARCH'
+    dependsOn 'assemble'
+    finalizedBy 'renameRpm'
+    task renameRpm(type: Copy) {
+      from("$buildDir/distributions")
+      into("$buildDir/distributions")
+      rename "$archiveFileName", "${packageName}-${archiveVersion}.rpm"
+      doLast { delete file("$buildDir/distributions/$archiveFileName") }
+    }
+  }
+
+  buildDeb {
+    arch = 'all'
+    dependsOn 'assemble'
+    finalizedBy 'renameDeb'
+    task renameDeb(type: Copy) {
+      from("$buildDir/distributions")
+      into("$buildDir/distributions")
+      rename "$archiveFileName", "${packageName}-${archiveVersion}.deb"
+      doLast { delete file("$buildDir/distributions/$archiveFileName") }
+    }
+  }
+
+  task buildPackages(type: GradleBuild) {
+    tasks = ['build', 'buildRpm', 'buildDeb']
+  }
+}
+
+// no need to validate pom, as we do not upload to maven/sonatype
+validateNebulaPom.enabled = false
+
+tasks.withType(licenseHeaders.class) {
+  additionalLicense 'AL   ', 'Apache', 'Licensed under the Apache License, Version 2.0 (the "License")'
+}
+
+// show test results so that we can record information like precion/recall results of correctness testing.
+if (printLogs) {
+  test {
+    testLogging {
+      showStandardStreams = true
+      outputs.upToDateWhen {false}
+    }
+  }
+}
+
+// updateVersion: Task to auto increment to the next development iteration
+task updateVersion {
+  onlyIf { System.getProperty('newVersion') }
+  doLast {
+    ext.newVersion = System.getProperty('newVersion')
+    println "Setting version to ${newVersion}."
+    // String tokenization to support -SNAPSHOT
+    // Include the required files that needs to be updated with new Version
+    ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
+  }
+}
+
+// https://github.com/opensearch-project/flow-framework/pull/226
+tasks.withType(AbstractPublishToMaven) {
+  def predicate = provider {
+    publication.name == "pluginZip"
+  }
+  onlyIf("Publishing only ZIP distributions") {
+    predicate.get()
+  }
 }
