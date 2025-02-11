@@ -10,12 +10,11 @@ package org.opensearch.plugin.wlm.rule.action;
 
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeRequest;
-import org.opensearch.wlm.Rule;
-import org.opensearch.wlm.Rule.Builder;
-import org.opensearch.common.UUIDs;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.wlm.Rule;
+import org.opensearch.wlm.Rule.Builder;
 import org.joda.time.Instant;
 
 import java.io.IOException;

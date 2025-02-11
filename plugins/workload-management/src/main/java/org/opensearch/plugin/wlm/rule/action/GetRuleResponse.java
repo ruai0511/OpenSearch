@@ -8,9 +8,6 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
-import org.opensearch.cluster.metadata.QueryGroup;
-import org.opensearch.wlm.ResourceType;
-import org.opensearch.wlm.Rule;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -18,9 +15,9 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.wlm.Rule;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.wlm.Rule._ID_STRING;
@@ -49,7 +46,7 @@ public class GetRuleResponse extends ActionResponse implements ToXContent, ToXCo
      */
     public GetRuleResponse(StreamInput in) throws IOException {
         this.rules = in.readMap(StreamInput::readString, Rule::new);
-        restStatus = RestStatus.readFrom(in);
+        this.restStatus = RestStatus.readFrom(in);
     }
 
     @Override

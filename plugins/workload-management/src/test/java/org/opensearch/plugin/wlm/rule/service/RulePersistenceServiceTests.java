@@ -8,18 +8,12 @@
 
 package org.opensearch.plugin.wlm.rule.service;
 
-import org.apache.lucene.search.TotalHits;
-import org.mockito.ArgumentCaptor;
 import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.get.GetRequestBuilder;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.action.search.SearchRequestBuilder;
-import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Client;
-import org.opensearch.client.FilterClient;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.shard.ShardId;
@@ -33,11 +27,21 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.mockito.ArgumentCaptor;
+
+import static org.opensearch.plugin.wlm.RuleTestUtils._ID_ONE;
+import static org.opensearch.plugin.wlm.RuleTestUtils.assertEqualRules;
+import static org.opensearch.plugin.wlm.RuleTestUtils.ruleOne;
+import static org.opensearch.plugin.wlm.RuleTestUtils.setUpRulePersistenceService;
+import static org.opensearch.plugin.wlm.rule.service.RulePersistenceService.RULE_INDEX;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-import static org.opensearch.plugin.wlm.RuleTestUtils.*;
-import static org.opensearch.plugin.wlm.rule.service.RulePersistenceService.RULE_INDEX;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 @SuppressWarnings("unchecked")
 public class RulePersistenceServiceTests extends OpenSearchTestCase {
 

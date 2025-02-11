@@ -26,7 +26,6 @@ public class TransportGetRuleAction extends HandledTransportAction<GetRuleReques
 
     /**
      * Constructor for TransportGetRuleAction
-     *
      * @param transportService - a {@link TransportService} object
      * @param actionFilters - a {@link ActionFilters} object
      * @param rulePersistenceService - a {@link RulePersistenceService} object

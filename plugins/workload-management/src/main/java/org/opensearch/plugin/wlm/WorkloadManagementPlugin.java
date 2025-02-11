@@ -74,9 +74,7 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, Sy
 
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        List<SystemIndexDescriptor> descriptors = List.of(
-            new SystemIndexDescriptor(RULE_INDEX, "System index used for storing rules")
-        );
+        List<SystemIndexDescriptor> descriptors = List.of(new SystemIndexDescriptor(RULE_INDEX, "System index used for storing rules"));
         return descriptors;
     }
 

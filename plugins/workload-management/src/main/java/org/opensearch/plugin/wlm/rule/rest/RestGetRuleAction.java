@@ -11,23 +11,24 @@ package org.opensearch.plugin.wlm.rule.rest;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
-import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.plugin.wlm.querygroup.action.GetQueryGroupAction;
-import org.opensearch.plugin.wlm.querygroup.action.GetQueryGroupRequest;
-import org.opensearch.plugin.wlm.rule.action.*;
-import org.opensearch.rest.*;
+import org.opensearch.plugin.wlm.rule.action.GetRuleAction;
+import org.opensearch.plugin.wlm.rule.action.GetRuleRequest;
+import org.opensearch.plugin.wlm.rule.action.GetRuleResponse;
+import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.rest.BytesRestResponse;
+import org.opensearch.rest.RestChannel;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.action.RestResponseListener;
-import org.opensearch.telemetry.tracing.AttributeNames;
-import org.opensearch.wlm.Rule;
 import org.opensearch.wlm.Rule.RuleAttribute;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Arrays;
-import java.util.HashSet;
 
 import static org.opensearch.rest.RestRequest.Method.GET;
 import static org.opensearch.wlm.Rule._ID_STRING;
@@ -58,7 +59,7 @@ public class RestGetRuleAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        Map<RuleAttribute, Set<String>> attributeFilters = new HashMap<>();
+        final Map<RuleAttribute, Set<String>> attributeFilters = new HashMap<>();
         for (String attributeName : request.params().keySet()) {
             if (attributeName.equals(_ID_STRING)) {
                 continue;

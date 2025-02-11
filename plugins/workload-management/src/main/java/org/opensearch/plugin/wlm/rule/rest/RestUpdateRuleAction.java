@@ -12,8 +12,14 @@ import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.plugin.wlm.rule.action.*;
-import org.opensearch.rest.*;
+import org.opensearch.plugin.wlm.rule.action.UpdateRuleAction;
+import org.opensearch.plugin.wlm.rule.action.UpdateRuleRequest;
+import org.opensearch.plugin.wlm.rule.action.UpdateRuleResponse;
+import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.rest.BytesRestResponse;
+import org.opensearch.rest.RestChannel;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.action.RestResponseListener;
 
 import java.io.IOException;

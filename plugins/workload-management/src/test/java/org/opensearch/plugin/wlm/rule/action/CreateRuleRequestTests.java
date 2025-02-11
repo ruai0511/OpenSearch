@@ -8,15 +8,14 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
-import org.opensearch.wlm.Rule;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
-import java.util.Map;
 
-import static org.opensearch.plugin.wlm.RuleTestUtils.*;
+import static org.opensearch.plugin.wlm.RuleTestUtils.assertEqualRule;
+import static org.opensearch.plugin.wlm.RuleTestUtils.ruleOne;
 
 public class CreateRuleRequestTests extends OpenSearchTestCase {
 

@@ -7,6 +7,7 @@
  */
 
 package org.opensearch.plugin.wlm.rule.action;
+
 import org.opensearch.action.ActionType;
 
 /**

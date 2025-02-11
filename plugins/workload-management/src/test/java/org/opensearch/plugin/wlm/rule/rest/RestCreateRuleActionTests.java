@@ -10,6 +10,7 @@ package org.opensearch.plugin.wlm.rule.rest;
 
 import org.opensearch.rest.RestHandler;
 import org.opensearch.test.OpenSearchTestCase;
+
 import java.util.List;
 
 import static org.opensearch.rest.RestRequest.Method.POST;

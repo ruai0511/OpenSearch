@@ -8,25 +8,19 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
-import org.joda.time.Instant;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeRequest;
-import org.opensearch.cluster.metadata.QueryGroup;
-import org.opensearch.wlm.Rule;
-import org.opensearch.wlm.Rule.RuleAttribute;
-import org.opensearch.wlm.Rule.Builder;
-import org.opensearch.common.UUIDs;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.plugin.wlm.querygroup.action.UpdateQueryGroupRequest;
+import org.opensearch.wlm.Rule;
+import org.opensearch.wlm.Rule.Builder;
+import org.opensearch.wlm.Rule.RuleAttribute;
 
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashSet;
 
 import static org.opensearch.wlm.Rule.builder;
 
@@ -56,7 +50,11 @@ public class UpdateRuleRequest extends ClusterManagerNodeRequest<UpdateRuleReque
      * @param in - A {@link StreamInput} object
      */
     UpdateRuleRequest(StreamInput in) throws IOException {
-        this(in.readString(), in.readMap((i) -> RuleAttribute.fromName(i.readString()), i -> new HashSet<>(i.readStringList())), in.readString());
+        this(
+            in.readString(),
+            in.readMap((i) -> RuleAttribute.fromName(i.readString()), i -> new HashSet<>(i.readStringList())),
+            in.readString()
+        );
     }
 
     /**
@@ -66,7 +64,7 @@ public class UpdateRuleRequest extends ClusterManagerNodeRequest<UpdateRuleReque
     public static UpdateRuleRequest fromXContent(XContentParser parser, String _id) throws IOException {
         Builder builder = Builder.fromXContent(parser);
         if (builder.getLabel() == null) {
-            builder.label(""); //TODO: check
+            builder.label(""); // TODO: check
         }
         return new UpdateRuleRequest(_id, builder().getAttributeMap(), null);
     }
@@ -79,7 +77,7 @@ public class UpdateRuleRequest extends ClusterManagerNodeRequest<UpdateRuleReque
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        //rule.writeTo(out);
+        // rule.writeTo(out);
     }
 
     /**

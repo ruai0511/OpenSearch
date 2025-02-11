@@ -8,7 +8,6 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
-import org.opensearch.wlm.Rule;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -16,9 +15,9 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.wlm.Rule;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 /**

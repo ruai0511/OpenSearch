@@ -8,29 +8,13 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
-import org.opensearch.action.admin.cluster.remote.RemoteInfoAction;
-import org.opensearch.action.admin.cluster.remote.RemoteInfoRequest;
-import org.opensearch.action.admin.cluster.remote.RemoteInfoResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.action.support.TransportAction;
-import org.opensearch.action.support.clustermanager.TransportClusterManagerNodeAction;
-import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.block.ClusterBlockException;
-import org.opensearch.cluster.block.ClusterBlockLevel;
-import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.plugin.wlm.rule.service.RulePersistenceService;
 import org.opensearch.tasks.Task;
-import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
-
-import java.io.IOException;
-
-import static java.util.stream.Collectors.toList;
-import static org.opensearch.threadpool.ThreadPool.Names.SAME;
 
 /**
  * Transport action to create Rule
