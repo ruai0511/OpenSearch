@@ -8,8 +8,13 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
+import org.junit.Before;
+import org.opensearch.autotagging.AutoTaggingRegistry;
+import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.plugin.wlm.rule.QueryGroupAttribute;
+import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;

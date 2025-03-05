@@ -17,6 +17,7 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.autotagging.FeatureType;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -30,11 +31,13 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.plugin.wlm.rule.QueryGroupAttribute;
+import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 import org.opensearch.plugin.wlm.rule.action.CreateRuleResponse;
 import org.opensearch.plugin.wlm.rule.action.GetRuleResponse;
-import org.opensearch.wlm.Rule;
-import org.opensearch.wlm.Rule.Builder;
-import org.opensearch.wlm.Rule.RuleAttribute;
+import org.opensearch.autotagging.Rule;
+import org.opensearch.autotagging.Rule.Builder;
+import org.opensearch.autotagging.Attribute;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -63,7 +66,7 @@ public class RulePersistenceService {
         this.client = client;
     }
 
-    public void createRule(Rule rule, ActionListener<CreateRuleResponse> listener) {
+    public void createRule(Rule<QueryGroupFeatureType> rule, ActionListener<CreateRuleResponse> listener) {
         final Map<String, Object> indexSettings = Map.of("index.number_of_shards", 1, "index.auto_expand_replicas", "0-all");
         createIfAbsent(indexSettings, new ActionListener<>() {
             @Override
@@ -78,7 +81,7 @@ public class RulePersistenceService {
         });
     }
 
-    public void persistRule(Rule rule, ActionListener<CreateRuleResponse> listener) {
+    public void persistRule(Rule<QueryGroupFeatureType> rule, ActionListener<CreateRuleResponse> listener) {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             IndexRequest indexRequest = new IndexRequest(RULE_INDEX).source(
                 rule.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)
@@ -125,7 +128,7 @@ public class RulePersistenceService {
         }
     }
 
-    public void getRule(String id, Map<RuleAttribute, Set<String>> attributeFilters, ActionListener<GetRuleResponse> listener) {
+    public void getRule(String id, Map<Attribute, Set<String>> attributeFilters, ActionListener<GetRuleResponse> listener) {
         if (id != null) {
             fetchRuleById(id, listener);
         } else {
@@ -150,7 +153,7 @@ public class RulePersistenceService {
                         DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
                         getResponse.getSourceAsString()
                     );
-                listener.onResponse(new GetRuleResponse(Map.of(id, Builder.fromXContent(parser).build()), RestStatus.OK));
+                listener.onResponse(new GetRuleResponse(Map.of(id, Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE).build()), RestStatus.OK));
             } catch (IOException e) {
                 logger.error("Error parsing rule with ID {}: {}", id, e.getMessage());
                 listener.onFailure(e);
@@ -160,9 +163,9 @@ public class RulePersistenceService {
         }
     }
 
-    private boolean matchesFilters(Rule rule, Map<RuleAttribute, Set<String>> attributeFilters) {
-        for (Map.Entry<RuleAttribute, Set<String>> entry : attributeFilters.entrySet()) {
-            RuleAttribute attribute = entry.getKey();
+    private boolean matchesFilters(Rule<QueryGroupFeatureType> rule, Map<Attribute, Set<String>> attributeFilters) {
+        for (Map.Entry<Attribute, Set<String>> entry : attributeFilters.entrySet()) {
+            Attribute attribute = entry.getKey();
             Set<String> expectedValues = entry.getValue();
             Set<String> ruleValues = rule.getAttributeMap().get(attribute);
             if (ruleValues == null || ruleValues.stream().noneMatch(expectedValues::contains)) {
@@ -172,7 +175,7 @@ public class RulePersistenceService {
         return true;
     }
 
-    private void fetchAllRules(Map<RuleAttribute, Set<String>> attributeFilters, ActionListener<GetRuleResponse> listener) {
+    private void fetchAllRules(Map<Attribute, Set<String>> attributeFilters, ActionListener<GetRuleResponse> listener) {
         client.prepareSearch(RULE_INDEX)
             .setQuery(QueryBuilders.matchAllQuery())
             .setSize(20)
@@ -184,14 +187,14 @@ public class RulePersistenceService {
 
     private void handleGetAllRuleResponse(
         SearchResponse searchResponse,
-        Map<RuleAttribute, Set<String>> attributeFilters,
+        Map<Attribute, Set<String>> attributeFilters,
         ActionListener<GetRuleResponse> listener
     ) {
-        Map<String, Rule> ruleMap = Arrays.stream(searchResponse.getHits().getHits()).map(hit -> {
+        Map<String, Rule<QueryGroupFeatureType>> ruleMap = Arrays.stream(searchResponse.getHits().getHits()).map(hit -> {
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 XContentParser parser = MediaTypeRegistry.JSON.xContent()
                     .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, hit.getSourceAsString());
-                Rule currRule = Rule.Builder.fromXContent(parser).build();
+                Rule<QueryGroupFeatureType> currRule = Rule.Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE).build();
                 if (matchesFilters(currRule, attributeFilters)) {
                     return Map.entry(hit.getId(), currRule);
                 }

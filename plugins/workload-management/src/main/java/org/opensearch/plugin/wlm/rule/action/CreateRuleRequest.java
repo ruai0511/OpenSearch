@@ -8,14 +8,17 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeRequest;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.wlm.Rule;
-import org.opensearch.wlm.Rule.Builder;
+import org.opensearch.autotagging.Rule;
+import org.opensearch.autotagging.Rule.Builder;
 import org.joda.time.Instant;
+import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 
 import java.io.IOException;
 
@@ -23,14 +26,14 @@ import java.io.IOException;
  * A request for create Rule
  * @opensearch.experimental
  */
-public class CreateRuleRequest extends ClusterManagerNodeRequest<CreateRuleRequest> {
-    private final Rule rule;
+public class CreateRuleRequest extends ActionRequest {
+    private final Rule<QueryGroupFeatureType> rule;
 
     /**
      * Constructor for CreateRuleRequest
      * @param rule - A {@link Rule} object
      */
-    CreateRuleRequest(Rule rule) {
+    CreateRuleRequest(Rule<QueryGroupFeatureType> rule) {
         this.rule = rule;
     }
 
@@ -40,7 +43,7 @@ public class CreateRuleRequest extends ClusterManagerNodeRequest<CreateRuleReque
      */
     CreateRuleRequest(StreamInput in) throws IOException {
         super(in);
-        rule = new Rule(in);
+        rule = new Rule<>(in);
     }
 
     /**
@@ -48,7 +51,7 @@ public class CreateRuleRequest extends ClusterManagerNodeRequest<CreateRuleReque
      * @param parser - A {@link XContentParser} object
      */
     public static CreateRuleRequest fromXContent(XContentParser parser) throws IOException {
-        Builder builder = Builder.fromXContent(parser);
+        Builder<QueryGroupFeatureType> builder = Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE);
         return new CreateRuleRequest(builder.updatedAt(Instant.now().toString()).build());
     }
 
@@ -66,7 +69,7 @@ public class CreateRuleRequest extends ClusterManagerNodeRequest<CreateRuleReque
     /**
      * Rule getter
      */
-    public Rule getRule() {
+    public Rule<QueryGroupFeatureType> getRule() {
         return rule;
     }
 }

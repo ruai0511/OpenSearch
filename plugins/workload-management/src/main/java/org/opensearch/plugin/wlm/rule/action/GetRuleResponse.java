@@ -15,19 +15,20 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.wlm.Rule;
+import org.opensearch.autotagging.Rule;
+import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 
 import java.io.IOException;
 import java.util.Map;
 
-import static org.opensearch.wlm.Rule._ID_STRING;
+import static org.opensearch.autotagging.Rule._ID_STRING;
 
 /**
  * Response for the get API for Rule
  * @opensearch.experimental
  */
 public class GetRuleResponse extends ActionResponse implements ToXContent, ToXContentObject {
-    private final Map<String, Rule> rules;
+    private final Map<String, Rule<QueryGroupFeatureType>> rules;
     private final RestStatus restStatus;
 
     /**
@@ -35,7 +36,7 @@ public class GetRuleResponse extends ActionResponse implements ToXContent, ToXCo
      * @param rules - The Map of Rules to be included in the response
      * @param restStatus - The restStatus for the response
      */
-    public GetRuleResponse(final Map<String, Rule> rules, RestStatus restStatus) {
+    public GetRuleResponse(final Map<String, Rule<QueryGroupFeatureType>> rules, RestStatus restStatus) {
         this.rules = rules;
         this.restStatus = restStatus;
     }
@@ -59,7 +60,7 @@ public class GetRuleResponse extends ActionResponse implements ToXContent, ToXCo
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         builder.startArray("rules");
-        for (Map.Entry<String, Rule> entry : rules.entrySet()) {
+        for (Map.Entry<String, Rule<QueryGroupFeatureType>> entry : rules.entrySet()) {
             entry.getValue().toXContent(builder, new MapParams(Map.of(_ID_STRING, entry.getKey())));
         }
         builder.endArray();
@@ -70,7 +71,7 @@ public class GetRuleResponse extends ActionResponse implements ToXContent, ToXCo
     /**
      * rules getter
      */
-    public Map<String, Rule> getRules() {
+    public Map<String, Rule<QueryGroupFeatureType>> getRules() {
         return rules;
     }
 

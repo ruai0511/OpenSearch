@@ -9,8 +9,11 @@
 package org.opensearch.plugin.wlm;
 
 import org.opensearch.action.ActionRequest;
+import org.opensearch.autotagging.Attribute;
+import org.opensearch.autotagging.FeatureType;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
+import org.opensearch.common.inject.Inject;
 import org.opensearch.common.inject.Module;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
@@ -18,6 +21,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.plugin.wlm.querygroup.action.CreateQueryGroupAction;
 import org.opensearch.plugin.wlm.querygroup.action.DeleteQueryGroupAction;
@@ -43,8 +47,10 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
+import org.opensearch.search.DocValueFormat;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -74,8 +80,7 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, Sy
 
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        List<SystemIndexDescriptor> descriptors = List.of(new SystemIndexDescriptor(RULE_INDEX, "System index used for storing rules"));
-        return descriptors;
+        return List.of(new SystemIndexDescriptor(RULE_INDEX, "System index used for storing rules"));
     }
 
     @Override
@@ -87,6 +92,7 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, Sy
         SettingsFilter settingsFilter,
         IndexNameExpressionResolver indexNameExpressionResolver,
         Supplier<DiscoveryNodes> nodesInCluster
+
     ) {
         return List.of(
             new RestCreateQueryGroupAction(),

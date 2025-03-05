@@ -15,7 +15,8 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.wlm.Rule;
+import org.opensearch.autotagging.Rule;
+import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 
 import java.io.IOException;
 
@@ -24,7 +25,7 @@ import java.io.IOException;
  * @opensearch.experimental
  */
 public class UpdateRuleResponse extends ActionResponse implements ToXContent, ToXContentObject {
-    private final Rule rule;
+    private final Rule<QueryGroupFeatureType> rule;
     private final RestStatus restStatus;
 
     /**
@@ -32,7 +33,7 @@ public class UpdateRuleResponse extends ActionResponse implements ToXContent, To
      * @param rule - The Rule to be included in the response
      * @param restStatus - The restStatus for the response
      */
-    public UpdateRuleResponse(final Rule rule, RestStatus restStatus) {
+    public UpdateRuleResponse(final Rule<QueryGroupFeatureType> rule, RestStatus restStatus) {
         this.rule = rule;
         this.restStatus = restStatus;
     }
@@ -42,7 +43,7 @@ public class UpdateRuleResponse extends ActionResponse implements ToXContent, To
      * @param in - A {@link StreamInput} object
      */
     public UpdateRuleResponse(StreamInput in) throws IOException {
-        rule = new Rule(in);
+        rule = new Rule<>(in);
         restStatus = RestStatus.readFrom(in);
     }
 
@@ -60,7 +61,7 @@ public class UpdateRuleResponse extends ActionResponse implements ToXContent, To
     /**
      * rule getter
      */
-    public Rule getRule() {
+    public Rule<QueryGroupFeatureType> getRule() {
         return rule;
     }
 

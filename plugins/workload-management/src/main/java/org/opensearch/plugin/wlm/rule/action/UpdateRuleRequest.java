@@ -8,29 +8,35 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeRequest;
+import org.opensearch.autotagging.AutoTaggingRegistry;
+import org.opensearch.common.collect.Tuple;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.wlm.Rule;
-import org.opensearch.wlm.Rule.Builder;
-import org.opensearch.wlm.Rule.RuleAttribute;
+import org.opensearch.autotagging.Rule;
+import org.opensearch.autotagging.Rule.Builder;
+import org.opensearch.autotagging.Attribute;
+import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static org.opensearch.wlm.Rule.builder;
+import static org.opensearch.autotagging.AutoTaggingRegistry.attributeRegistryMap;
+import static org.opensearch.autotagging.Rule.builder;
 
 /**
  * A request for update Rule
  * @opensearch.experimental
  */
-public class UpdateRuleRequest extends ClusterManagerNodeRequest<UpdateRuleRequest> {
+public class UpdateRuleRequest extends ActionRequest {
     private final String _id;
-    private final Map<RuleAttribute, Set<String>> attributeMap;
+    private final Map<Attribute, Set<String>> attributeMap;
     private final String label;
 
     /**
@@ -39,7 +45,7 @@ public class UpdateRuleRequest extends ClusterManagerNodeRequest<UpdateRuleReque
      * @param attributeMap - attributeMap for the Rule
      * @param label - label for the Rule
      */
-    public UpdateRuleRequest(String _id, Map<RuleAttribute, Set<String>> attributeMap, String label) throws IOException {
+    public UpdateRuleRequest(String _id, Map<Attribute, Set<String>> attributeMap, String label) throws IOException {
         this._id = _id;
         this.attributeMap = attributeMap;
         this.label = label;
@@ -50,11 +56,10 @@ public class UpdateRuleRequest extends ClusterManagerNodeRequest<UpdateRuleReque
      * @param in - A {@link StreamInput} object
      */
     UpdateRuleRequest(StreamInput in) throws IOException {
-        this(
-            in.readString(),
-            in.readMap((i) -> RuleAttribute.fromName(i.readString()), i -> new HashSet<>(i.readStringList())),
-            in.readString()
-        );
+        super(in);
+        _id = in.readString();
+        attributeMap = Rule.readAttributeMap(in);
+        label = in.readOptionalString();
     }
 
     /**
@@ -62,11 +67,8 @@ public class UpdateRuleRequest extends ClusterManagerNodeRequest<UpdateRuleReque
      * @param parser - A {@link XContentParser} object
      */
     public static UpdateRuleRequest fromXContent(XContentParser parser, String _id) throws IOException {
-        Builder builder = Builder.fromXContent(parser);
-        if (builder.getLabel() == null) {
-            builder.label(""); // TODO: check
-        }
-        return new UpdateRuleRequest(_id, builder().getAttributeMap(), null);
+        Builder<QueryGroupFeatureType> builder = Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE);
+        return new UpdateRuleRequest(_id, builder.getAttributeMap(), builder.getLabel());
     }
 
     @Override
@@ -76,14 +78,14 @@ public class UpdateRuleRequest extends ClusterManagerNodeRequest<UpdateRuleReque
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
-        // rule.writeTo(out);
-    }
-
-    /**
-     * Rule getter
-     */
-    public Rule getRule() {
-        return null;
+        out.writeString(_id);
+        out.writeMap(attributeMap,
+            (o, a) -> {
+                o.writeString(a.getClass().getName());
+                o.writeString(a.getName());
+            },
+            StreamOutput::writeStringCollection
+        );
+        out.writeOptionalString(label);
     }
 }
