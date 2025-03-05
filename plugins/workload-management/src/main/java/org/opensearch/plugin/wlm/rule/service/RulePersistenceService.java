@@ -148,23 +148,11 @@ public class RulePersistenceService {
             return;
         }
 
-        // Check if the document exists before deleting
-        GetRequest getRequest = new GetRequest(RULE_INDEX, id);
-        client.get(getRequest, ActionListener.wrap(
-            getResponse -> {
-                if (!getResponse.isExists()) {
-                    listener.onFailure(new ResourceNotFoundException("The rule with id " + id + " doesn't exist"));
-                } else {
-                    // Proceed with deletion
-                    DeleteRequest deleteRequest = new DeleteRequest(RULE_INDEX, id);
-                    client.delete(deleteRequest, ActionListener.wrap(
-                        deleteResponse -> {
-                            boolean acknowledged = deleteResponse.getResult() == DeleteResponse.Result.DELETED;
-                            listener.onResponse(new DeleteRuleResponse(acknowledged));
-                        },
-                        listener::onFailure
-                    ));
-                }
+        DeleteRequest deleteRequest = new DeleteRequest(RULE_INDEX, id);
+        client.delete(deleteRequest, ActionListener.wrap(
+            deleteResponse -> {
+                boolean acknowledged = deleteResponse.getResult() == DeleteResponse.Result.DELETED;
+                listener.onResponse(new DeleteRuleResponse(acknowledged));
             },
             listener::onFailure
         ));

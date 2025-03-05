@@ -20,14 +20,14 @@ import java.io.IOException;
  * @opensearch.experimental
  */
 public class DeleteRuleRequest extends ClusterManagerNodeRequest<DeleteRuleRequest> {
-    private final String _id;
+    private final String id;
 
     /**
      * Constructor for DeleteRuleRequest
-     * @param _id - Rule _id that we want to delete
+     * @param id - Rule id that we want to delete
      */
-    public DeleteRuleRequest(String _id) {
-        this._id = _id;
+    public DeleteRuleRequest(String id) {
+        this.id = id;
     }
 
     /**
@@ -36,7 +36,7 @@ public class DeleteRuleRequest extends ClusterManagerNodeRequest<DeleteRuleReque
      */
     public DeleteRuleRequest(StreamInput in) throws IOException {
         super(in);
-        _id = in.readOptionalString();
+        id = in.readOptionalString();
     }
 
     @Override
@@ -47,13 +47,13 @@ public class DeleteRuleRequest extends ClusterManagerNodeRequest<DeleteRuleReque
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeOptionalString(_id);
+        out.writeOptionalString(id);
     }
 
     /**
-     * _id getter
+     * id getter
      */
     public String get_id() {
-        return _id;
+        return id;
     }
 }

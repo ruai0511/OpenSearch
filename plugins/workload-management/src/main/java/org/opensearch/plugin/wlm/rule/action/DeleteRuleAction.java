@@ -25,7 +25,7 @@ public class DeleteRuleAction extends ActionType<DeleteRuleResponse> {
     /**
      * Name for DeleteRuleAction
      */
-    public static final String NAME = "cluster:admin/opensearch/wlm/rule/delete";
+    public static final String NAME = "cluster:admin/opensearch/wlm/rule/_delete";
 
     /**
      * Default constructor
