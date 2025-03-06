@@ -8,8 +8,7 @@
 
 package org.opensearch.autotagging;
 
-
-import org.apache.lucene.util.fst.PairOutputs;
+import org.opensearch.ResourceNotFoundException;
 import org.opensearch.common.collect.Tuple;
 
 import java.util.HashMap;
@@ -41,12 +40,15 @@ public class AutoTaggingRegistry {
     }
 
     public static FeatureType getFeatureType(String className, String featureTypeName) {
-        for (Tuple<String, String> c: featureTypesRegistryMap.keySet()) {
-            System.out.println(c);
-        }
         FeatureType featureType = featureTypesRegistryMap.get(new Tuple<>(className, featureTypeName));
         if (featureType == null) {
-            throw new RuntimeException("Couldn't find a feature type with name: " + featureTypeName + " under the class: " + className + ". Make sure you have registered it.");
+            throw new ResourceNotFoundException(
+                "Couldn't find a feature type with name: "
+                    + featureTypeName
+                    + " under the class: "
+                    + className
+                    + ". Make sure you have registered it."
+            );
         }
         return featureType;
     }
@@ -54,7 +56,13 @@ public class AutoTaggingRegistry {
     public static Attribute getAttribute(String className, String attributeName) {
         Attribute attribute = attributeRegistryMap.get(new Tuple<>(className, attributeName));
         if (attribute == null) {
-            throw new RuntimeException("Couldn't find a attribute with name: " + attributeName + " under the class: " + className + ". Make sure you have registered it.");
+            throw new ResourceNotFoundException(
+                "Couldn't find a attribute with name: "
+                    + attributeName
+                    + " under the class: "
+                    + className
+                    + ". Make sure you have registered it."
+            );
         }
         return attribute;
     }

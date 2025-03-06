@@ -9,8 +9,6 @@
 package org.opensearch.autotagging;
 
 import org.opensearch.common.ValidationException;
-import org.opensearch.common.collect.Tuple;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -19,18 +17,14 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.joda.time.Instant;
-import org.w3c.dom.Attr;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static org.opensearch.autotagging.AutoTaggingRegistry.attributeRegistryMap;
-import static org.opensearch.autotagging.AutoTaggingRegistry.featureTypesRegistryMap;
 import static org.opensearch.cluster.metadata.QueryGroup.isValid;
 
 /**
@@ -74,23 +68,10 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
     @SuppressWarnings("unchecked")
     public Rule(StreamInput in) throws IOException {
         description = in.readString();
-        attributeMap = readAttributeMap(in);
-        featureType = (T) AutoTaggingRegistry.getFeatureType(in.readString(), in.readString());
+        attributeMap = in.readMap(Attribute::from, i -> new HashSet<>(i.readStringList()));
+        featureType = (T) FeatureType.from(in);
         label = in.readString();
         updatedAt = in.readString();
-    }
-
-    public static Map<Attribute, Set<String>> readAttributeMap(StreamInput in) throws IOException {
-        Map<Tuple<String, String>, Set<String>> tempMap = in.readMap(
-            i -> new Tuple<>(i.readString(), i.readString()),
-            i -> new HashSet<>(i.readStringList())
-        );
-        Map<Attribute, Set<String>> map = new HashMap<>();
-        for (var entry : tempMap.entrySet()) {
-            Attribute attribute = AutoTaggingRegistry.getAttribute(entry.getKey().v1(), entry.getKey().v2());
-            map.put(attribute, entry.getValue());
-        }
-        return map;
     }
 
     public static <T extends FeatureType> void validateRuleInputs(
@@ -127,15 +108,8 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(description);
-        out.writeMap(attributeMap,
-            (o, a) -> {
-                o.writeString(a.getClass().getName());
-                o.writeString(a.getName());
-            },
-            StreamOutput::writeStringCollection
-        );
-        out.writeString(featureType.getClass().getName());
-        out.writeString(featureType.getName());
+        out.writeMap(attributeMap, (output, attribute) -> attribute.writeTo(output), StreamOutput::writeStringCollection);
+        featureType.writeTo(out);
         out.writeString(label);
         out.writeString(updatedAt);
     }
@@ -250,8 +224,12 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
             return builder.attributeMap(attributeMap1);
         }
 
-        public static <T extends FeatureType> void fromXContentParseArray(XContentParser parser, String fieldName, T featureType, Map<Attribute, Set<String>> attributeMap)
-            throws IOException {
+        public static <T extends FeatureType> void fromXContentParseArray(
+            XContentParser parser,
+            String fieldName,
+            T featureType,
+            Map<Attribute, Set<String>> attributeMap
+        ) throws IOException {
             Attribute attribute = featureType.getAttributeFromName(fieldName);
             if (attribute == null) {
                 throw new XContentParseException(fieldName + " is not a valid attribute within the " + featureType.getName() + " feature.");

@@ -34,9 +34,6 @@ import static org.opensearch.rest.RestRequest.Method.PUT;
  */
 public class RestUpdateRuleAction extends BaseRestHandler {
 
-    /**
-     * Constructor for RestUpdateRuleAction
-     */
     public RestUpdateRuleAction() {}
 
     @Override

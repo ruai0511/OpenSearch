@@ -36,7 +36,6 @@ public class RuleTestUtils {
     public static final String PATTERN_TWO = "pattern_2";
     public static final String DESCRIPTION_ONE = "description_1";
     public static final String DESCRIPTION_TWO = "description_2";
-    public static final String QUERY_GROUP = "query_group";
     public static final String TIMESTAMP_ONE = "2024-01-26T08:58:57.558Z";
     public static final String TIMESTAMP_TWO = "2023-01-26T08:58:57.558Z";
     public static final Map<Attribute, Set<String>> attributes = Map.of(QueryGroupAttribute.INDEX_PATTERN, Set.of(PATTERN_ONE));

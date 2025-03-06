@@ -9,8 +9,6 @@
 package org.opensearch.autotagging;
 
 import org.opensearch.common.ValidationException;
-import org.opensearch.common.annotation.ExperimentalApi;
-import org.opensearch.core.common.io.stream.NamedWriteable;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -26,9 +24,13 @@ import java.util.Set;
  */
 public interface FeatureType extends Writeable {
     String getName();
+
     int getMaxNumberOfValuesPerAttribute();
+
     int getMaxCharLengthPerAttributeValue();
+
     Set<Attribute> getAllowedAttributes();
+
     void registerFeatureType();
 
     default boolean isValidAttribute(Attribute attribute) {
@@ -40,12 +42,18 @@ public interface FeatureType extends Writeable {
             Attribute attribute = entry.getKey();
             Set<String> attributeValues = entry.getValue();
             if (getAttributeFromName(attribute.getName()) == null) {
-                validationException.addValidationError(attribute.getName() + " is not a valid attribute within the " + getName() + " feature.");
+                validationException.addValidationError(
+                    attribute.getName() + " is not a valid attribute within the " + getName() + " feature."
+                );
             }
             int maxValues = getMaxNumberOfValuesPerAttribute();
             if (attributeValues.size() > maxValues) {
                 validationException.addValidationError(
-                    "Each attribute can only have a maximum of " + maxValues + " values. The input attribute " + attribute + " exceeds this limit."
+                    "Each attribute can only have a maximum of "
+                        + maxValues
+                        + " values. The input attribute "
+                        + attribute
+                        + " exceeds this limit."
                 );
             }
             int maxValueLength = getMaxCharLengthPerAttributeValue();
@@ -60,9 +68,16 @@ public interface FeatureType extends Writeable {
     }
 
     default Attribute getAttributeFromName(String fieldName) {
-        return getAllowedAttributes().stream()
-            .filter(attr -> attr.getName().equals(fieldName))
-            .findFirst()
-            .orElse(null);
+        return getAllowedAttributes().stream().filter(attr -> attr.getName().equals(fieldName)).findFirst().orElse(null);
+    }
+
+    @Override
+    default void writeTo(StreamOutput out) throws IOException {
+        out.writeString(getClass().getName());
+        out.writeString(getName());
+    }
+
+    static FeatureType from(StreamInput in) throws IOException {
+        return AutoTaggingRegistry.getFeatureType(in.readString(), in.readString());
     }
 }

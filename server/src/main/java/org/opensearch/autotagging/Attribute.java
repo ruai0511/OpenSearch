@@ -8,7 +8,11 @@
 
 package org.opensearch.autotagging;
 
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
+
+import java.io.IOException;
 
 /**
  * Represents an attribute within the auto-tagging feature. Attributes define characteristics that can
@@ -18,5 +22,16 @@ import org.opensearch.core.common.io.stream.Writeable;
  */
 public interface Attribute extends Writeable {
     String getName();
+
     void registerAttribute();
+
+    @Override
+    default void writeTo(StreamOutput out) throws IOException {
+        out.writeString(getClass().getName());
+        out.writeString(getName());
+    }
+
+    static Attribute from(StreamInput in) throws IOException {
+        return AutoTaggingRegistry.getAttribute(in.readString(), in.readString());
+    }
 }

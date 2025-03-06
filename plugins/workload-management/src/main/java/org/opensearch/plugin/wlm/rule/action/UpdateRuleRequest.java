@@ -12,6 +12,7 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeRequest;
 import org.opensearch.autotagging.AutoTaggingRegistry;
+import org.opensearch.autotagging.FeatureType;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -58,7 +59,7 @@ public class UpdateRuleRequest extends ActionRequest {
     UpdateRuleRequest(StreamInput in) throws IOException {
         super(in);
         _id = in.readString();
-        attributeMap = Rule.readAttributeMap(in);
+        attributeMap = in.readMap(Attribute::from, i -> new HashSet<>(i.readStringList()));
         label = in.readOptionalString();
     }
 
@@ -79,13 +80,7 @@ public class UpdateRuleRequest extends ActionRequest {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(_id);
-        out.writeMap(attributeMap,
-            (o, a) -> {
-                o.writeString(a.getClass().getName());
-                o.writeString(a.getName());
-            },
-            StreamOutput::writeStringCollection
-        );
+        out.writeMap(attributeMap, (o, a) -> a.writeTo(o), StreamOutput::writeStringCollection);
         out.writeOptionalString(label);
     }
 }

@@ -43,11 +43,6 @@ public enum QueryGroupAttribute implements Attribute {
         AutoTaggingRegistry.registerAttribute(this);
     }
 
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(name);
-    }
-
     public static QueryGroupAttribute fromName(String name) {
         for (QueryGroupAttribute attr : QueryGroupAttribute.values()) {
             if (attr.getName().equals(name)) {

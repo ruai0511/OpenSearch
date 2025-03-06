@@ -40,9 +40,6 @@ import static org.opensearch.autotagging.Rule._ID_STRING;
  */
 public class RestGetRuleAction extends BaseRestHandler {
 
-    /**
-     * Constructor for RestGetRuleAction
-     */
     public RestGetRuleAction() {}
 
     @Override

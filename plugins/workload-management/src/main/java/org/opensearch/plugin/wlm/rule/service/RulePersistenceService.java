@@ -47,7 +47,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * This class defines the functions for Rule persistence
+ * This class encapsulates the logic to manage the lifecycle of rules at index level
  * @opensearch.experimental
  */
 public class RulePersistenceService {
@@ -71,6 +71,10 @@ public class RulePersistenceService {
         createIfAbsent(indexSettings, new ActionListener<>() {
             @Override
             public void onResponse(Boolean indexCreated) {
+                if (!indexCreated) {
+                    listener.onFailure(new IllegalStateException(RULE_INDEX + " index creation failed and rule cannot be persisted"));
+                    return;
+                }
                 persistRule(rule, listener);
             }
 

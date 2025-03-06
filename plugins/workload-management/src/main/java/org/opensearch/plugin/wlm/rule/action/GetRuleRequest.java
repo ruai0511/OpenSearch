@@ -11,6 +11,7 @@ package org.opensearch.plugin.wlm.rule.action;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeRequest;
+import org.opensearch.autotagging.FeatureType;
 import org.opensearch.autotagging.Rule;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -46,7 +47,7 @@ public class GetRuleRequest extends ActionRequest {
     public GetRuleRequest(StreamInput in) throws IOException {
         super(in);
         _id = in.readOptionalString();
-        attributeFilters = Rule.readAttributeMap(in);
+        attributeFilters = in.readMap(Attribute::from, i -> new HashSet<>(i.readStringList()));
     }
 
     @Override
@@ -58,10 +59,7 @@ public class GetRuleRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeOptionalString(_id);
-        out.writeMap(attributeFilters,
-            (outStream, attribute) -> outStream.writeString(attribute.getName()),
-            StreamOutput::writeStringCollection
-        );
+        out.writeMap(attributeFilters, (outStream, attribute) -> attribute.writeTo(outStream), StreamOutput::writeStringCollection);
     }
 
     /**

@@ -31,11 +31,6 @@ public class QueryGroupFeatureType implements FeatureType {
     }
 
     @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(NAME);
-    }
-
-    @Override
     public String getName() {
         return NAME;
     }

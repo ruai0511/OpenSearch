@@ -11,7 +11,7 @@ package org.opensearch.plugin.wlm.rule.action;
 import org.opensearch.action.ActionType;
 
 /**
- * Transport action to get Rule
+ * Action type for getting Rules in workload management
  * @opensearch.experimental
  */
 public class GetRuleAction extends ActionType<GetRuleResponse> {
