@@ -36,12 +36,10 @@ import org.opensearch.plugin.wlm.querygroup.rest.RestDeleteQueryGroupAction;
 import org.opensearch.plugin.wlm.querygroup.rest.RestGetQueryGroupAction;
 import org.opensearch.plugin.wlm.querygroup.rest.RestUpdateQueryGroupAction;
 import org.opensearch.plugin.wlm.querygroup.service.QueryGroupPersistenceService;
-import org.opensearch.plugin.wlm.rule.action.CreateRuleAction;
-import org.opensearch.plugin.wlm.rule.action.GetRuleAction;
-import org.opensearch.plugin.wlm.rule.action.TransportCreateRuleAction;
-import org.opensearch.plugin.wlm.rule.action.TransportGetRuleAction;
+import org.opensearch.plugin.wlm.rule.action.*;
 import org.opensearch.plugin.wlm.rule.rest.RestCreateRuleAction;
 import org.opensearch.plugin.wlm.rule.rest.RestGetRuleAction;
+import org.opensearch.plugin.wlm.rule.rest.RestUpdateRuleAction;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.SystemIndexPlugin;
@@ -54,7 +52,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static org.opensearch.plugin.wlm.rule.service.RulePersistenceService.RULE_INDEX;
+import static org.opensearch.plugin.wlm.rule.service.RulePersistenceService.RULES_INDEX;
 
 /**
  * Plugin class for WorkloadManagement
@@ -74,13 +72,14 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, Sy
             new ActionPlugin.ActionHandler<>(DeleteQueryGroupAction.INSTANCE, TransportDeleteQueryGroupAction.class),
             new ActionPlugin.ActionHandler<>(UpdateQueryGroupAction.INSTANCE, TransportUpdateQueryGroupAction.class),
             new ActionPlugin.ActionHandler<>(CreateRuleAction.INSTANCE, TransportCreateRuleAction.class),
-            new ActionPlugin.ActionHandler<>(GetRuleAction.INSTANCE, TransportGetRuleAction.class)
+            new ActionPlugin.ActionHandler<>(GetRuleAction.INSTANCE, TransportGetRuleAction.class),
+            new ActionPlugin.ActionHandler<>(UpdateRuleAction.INSTANCE, TransportUpdateRuleAction.class)
         );
     }
 
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        return List.of(new SystemIndexDescriptor(RULE_INDEX, "System index used for storing rules"));
+        return List.of(new SystemIndexDescriptor(RULES_INDEX, "System index used for storing rules"));
     }
 
     @Override
@@ -100,7 +99,8 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, Sy
             new RestDeleteQueryGroupAction(),
             new RestUpdateQueryGroupAction(),
             new RestCreateRuleAction(),
-            new RestGetRuleAction()
+            new RestGetRuleAction(),
+            new RestUpdateRuleAction()
         );
     }
 

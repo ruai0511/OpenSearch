@@ -15,6 +15,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 
 public class QueryGroupFeatureType implements FeatureType {
@@ -22,17 +23,12 @@ public class QueryGroupFeatureType implements FeatureType {
     public static final String NAME = "query_group";
     private static final int MAX_ATTRIBUTE_VALUES = 10;
     private static final int MAX_ATTRIBUTE_VALUE_LENGTH = 100;
-    private static final Set<Attribute> ALLOWED_ATTRIBUTES = Set.of(QueryGroupAttribute.values());
+    private static final Map<String, Attribute> ALLOWED_ATTRIBUTES = QueryGroupAttribute.toMap();
 
     private QueryGroupFeatureType() {}
 
     static {
         INSTANCE.registerFeatureType();
-    }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(NAME);
     }
 
     @Override
@@ -51,7 +47,7 @@ public class QueryGroupFeatureType implements FeatureType {
     }
 
     @Override
-    public Set<Attribute> getAllowedAttributes() {
+    public Map<String, Attribute> getAllowedAttributesRegistry() {
         return ALLOWED_ATTRIBUTES;
     }
 

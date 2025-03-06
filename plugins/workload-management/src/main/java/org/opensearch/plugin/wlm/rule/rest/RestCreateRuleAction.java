@@ -35,9 +35,6 @@ import static org.opensearch.rest.RestRequest.Method.PUT;
  */
 public class RestCreateRuleAction extends BaseRestHandler {
 
-    /**
-     * Constructor for RestCreateRuleAction
-     */
     public RestCreateRuleAction() {}
 
     @Override

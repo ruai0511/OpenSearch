@@ -19,13 +19,17 @@ import org.opensearch.autotagging.Rule;
 import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 
 import java.io.IOException;
+import java.util.Map;
+
+import static org.opensearch.autotagging.Rule._ID_STRING;
 
 /**
  * Response for the update API for Rule
  * @opensearch.experimental
  */
 public class UpdateRuleResponse extends ActionResponse implements ToXContent, ToXContentObject {
-    private final Rule<QueryGroupFeatureType> rule;
+    private final String _id;
+    private final Rule rule;
     private final RestStatus restStatus;
 
     /**
@@ -33,7 +37,8 @@ public class UpdateRuleResponse extends ActionResponse implements ToXContent, To
      * @param rule - The Rule to be included in the response
      * @param restStatus - The restStatus for the response
      */
-    public UpdateRuleResponse(final Rule<QueryGroupFeatureType> rule, RestStatus restStatus) {
+    public UpdateRuleResponse(String _id, final Rule rule, RestStatus restStatus) {
+        this._id = _id;
         this.rule = rule;
         this.restStatus = restStatus;
     }
@@ -43,31 +48,29 @@ public class UpdateRuleResponse extends ActionResponse implements ToXContent, To
      * @param in - A {@link StreamInput} object
      */
     public UpdateRuleResponse(StreamInput in) throws IOException {
-        rule = new Rule<>(in);
-        restStatus = RestStatus.readFrom(in);
+        this(in.readString(), new Rule(in), RestStatus.readFrom(in));
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(_id);
         rule.writeTo(out);
         RestStatus.writeTo(out, restStatus);
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        return rule.toXContent(builder, params);
+        return rule.toXContent(builder, new MapParams(Map.of(_ID_STRING, _id)));
     }
 
-    /**
-     * rule getter
-     */
-    public Rule<QueryGroupFeatureType> getRule() {
+    public String get_id() {
+        return _id;
+    }
+
+    public Rule getRule() {
         return rule;
     }
 
-    /**
-     * restStatus getter
-     */
     public RestStatus getRestStatus() {
         return restStatus;
     }

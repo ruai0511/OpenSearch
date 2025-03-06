@@ -8,9 +8,7 @@
 
 package org.opensearch.autotagging;
 
-
-import org.apache.lucene.util.fst.PairOutputs;
-import org.opensearch.common.collect.Tuple;
+import org.opensearch.ResourceNotFoundException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,39 +21,48 @@ import java.util.Map;
  * @opensearch.experimental
  */
 public class AutoTaggingRegistry {
-    public static final Map<Tuple<String, String>, FeatureType> featureTypesRegistryMap = new HashMap<>();
-    public static final Map<Tuple<String, String>, Attribute> attributeRegistryMap = new HashMap<>();
+    /**
+     * featureTypesRegistryMap should be concurrently readable but not concurrently writable.
+     * The registration of FeatureType should only be done during boot-up.
+     */
+    public static final Map<String, FeatureType> featureTypesRegistryMap = new HashMap<>();
+    public static final int MAX_FEATURE_TYPE_NAME_LENGTH = 30;
 
     public static void registerFeatureType(FeatureType featureType) {
-        if (featureType == null) {
-            throw new IllegalStateException("Feature type is not initialized and can't be registered");
+        validateFeatureType(featureType);
+        String name = featureType.getName();
+        if (featureTypesRegistryMap.containsKey(name) && featureTypesRegistryMap.get(name) != featureType) {
+            throw new IllegalStateException("Feature type " + name + " is already registered. Duplicate feature type is not allowed.");
         }
-        featureTypesRegistryMap.put(new Tuple<>(featureType.getClass().getName(), featureType.getName()), featureType);
+        featureTypesRegistryMap.put(name, featureType);
     }
 
-    public static void registerAttribute(Attribute attribute) {
-        if (attribute == null) {
-            throw new IllegalStateException("Attribute is not initialized and can't be registered");
+    private static void validateFeatureType(FeatureType featureType) {
+        if (featureType == null) {
+            throw new IllegalStateException("Feature type can't be null. Unable to register.");
         }
-        attributeRegistryMap.put(new Tuple<>(attribute.getClass().getName(), attribute.getName()), attribute);
+        String name = featureType.getName();
+        if (name == null || name.isEmpty() || name.length() > MAX_FEATURE_TYPE_NAME_LENGTH) {
+            throw new IllegalStateException(
+                "Feature type name " + name + " should not be null, empty or have more than  " + MAX_FEATURE_TYPE_NAME_LENGTH + "characters"
+            );
+        }
     }
 
-    public static FeatureType getFeatureType(String className, String featureTypeName) {
-        for (Tuple<String, String> c: featureTypesRegistryMap.keySet()) {
-            System.out.println(c);
-        }
-        FeatureType featureType = featureTypesRegistryMap.get(new Tuple<>(className, featureTypeName));
+    /**
+     * Retrieves the registered {@link FeatureType} instance based on class name and feature type name.
+     * This method assumes that FeatureTypes are singletons, meaning that each unique
+     * (className, featureTypeName) pair corresponds to a single, globally shared instance.
+     *
+     * @param featureTypeName The name of the feature type.
+     */
+    public static FeatureType getFeatureType(String featureTypeName) {
+        FeatureType featureType = featureTypesRegistryMap.get(featureTypeName);
         if (featureType == null) {
-            throw new RuntimeException("Couldn't find a feature type with name: " + featureTypeName + " under the class: " + className + ". Make sure you have registered it.");
+            throw new ResourceNotFoundException(
+                "Couldn't find a feature type with name: " + featureTypeName + ". Make sure you have registered it."
+            );
         }
         return featureType;
-    }
-
-    public static Attribute getAttribute(String className, String attributeName) {
-        Attribute attribute = attributeRegistryMap.get(new Tuple<>(className, attributeName));
-        if (attribute == null) {
-            throw new RuntimeException("Couldn't find a attribute with name: " + attributeName + " under the class: " + className + ". Make sure you have registered it.");
-        }
-        return attribute;
     }
 }

@@ -8,9 +8,6 @@
 
 package org.opensearch.autotagging;
 
-import org.opensearch.common.ValidationException;
-import org.opensearch.common.collect.Tuple;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -18,20 +15,13 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
-import org.joda.time.Instant;
-import org.w3c.dom.Attr;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-
-import static org.opensearch.autotagging.AutoTaggingRegistry.attributeRegistryMap;
-import static org.opensearch.autotagging.AutoTaggingRegistry.featureTypesRegistryMap;
-import static org.opensearch.cluster.metadata.QueryGroup.isValid;
 
 /**
  * Represents a rule schema used for automatic query tagging in the system.
@@ -47,100 +37,53 @@ import static org.opensearch.cluster.metadata.QueryGroup.isValid;
  * }
  * @opensearch.experimental
  */
-public class Rule<T extends FeatureType> implements Writeable, ToXContentObject {
+public class Rule implements Writeable, ToXContentObject {
     private final String description;
+    private final FeatureType featureType;
     private final Map<Attribute, Set<String>> attributeMap;
-    private final T featureType;
-    private final String label;
+    private final String featureValue;
     private final String updatedAt;
+    private final RuleValidator ruleValidator;
     public static final String _ID_STRING = "_id";
     public static final String DESCRIPTION_STRING = "description";
     public static final String UPDATED_AT_STRING = "updated_at";
 
-    public Rule(String description, Map<Attribute, Set<String>> attributeMap, T featureType, String label, String updatedAt) {
-        ValidationException validationException = new ValidationException();
-        validateRuleInputs(description, attributeMap, label, updatedAt, featureType, validationException);
-        if (!validationException.validationErrors().isEmpty()) {
-            throw new IllegalArgumentException(validationException);
-        }
-
+    public Rule(
+            String description,
+            Map<Attribute, Set<String>> attributeMap,
+            FeatureType featureType,
+            String featureValue,
+            String updatedAt
+    ) {
         this.description = description;
-        this.attributeMap = attributeMap;
         this.featureType = featureType;
-        this.label = label;
+        this.attributeMap = attributeMap;
+        this.featureValue = featureValue;
         this.updatedAt = updatedAt;
+        this.ruleValidator = new RuleValidator(description, attributeMap, featureValue, updatedAt, featureType);
+        this.ruleValidator.validate();
     }
 
-    @SuppressWarnings("unchecked")
     public Rule(StreamInput in) throws IOException {
         description = in.readString();
-        attributeMap = readAttributeMap(in);
-        featureType = (T) AutoTaggingRegistry.getFeatureType(in.readString(), in.readString());
-        label = in.readString();
+        featureType = FeatureType.from(in);
+        attributeMap = in.readMap(i -> Attribute.from(i, featureType), i -> new HashSet<>(i.readStringList()));
+        featureValue = in.readString();
         updatedAt = in.readString();
-    }
-
-    public static Map<Attribute, Set<String>> readAttributeMap(StreamInput in) throws IOException {
-        Map<Tuple<String, String>, Set<String>> tempMap = in.readMap(
-            i -> new Tuple<>(i.readString(), i.readString()),
-            i -> new HashSet<>(i.readStringList())
-        );
-        Map<Attribute, Set<String>> map = new HashMap<>();
-        for (var entry : tempMap.entrySet()) {
-            Attribute attribute = AutoTaggingRegistry.getAttribute(entry.getKey().v1(), entry.getKey().v2());
-            map.put(attribute, entry.getValue());
-        }
-        return map;
-    }
-
-    public static <T extends FeatureType> void validateRuleInputs(
-        String description,
-        Map<Attribute, Set<String>> attributeMap,
-        String label,
-        String updatedAt,
-        T featureType,
-        ValidationException validationException
-    ) {
-        requireNonNullOrEmpty(description, "Rule description can't be null or empty", validationException);
-        if (featureType == null) {
-            validationException.addValidationError("Couldn't identify which feature the rule belongs to. Rule feature can't be null.");
-        }
-        requireNonNullOrEmpty(label, "Rule label can't be null or empty", validationException);
-        requireNonNullOrEmpty(updatedAt, "Rule update time can't be null or empty", validationException);
-        if (attributeMap == null || attributeMap.isEmpty()) {
-            validationException.addValidationError("Rule should have at least 1 attribute requirement");
-        }
-        if (updatedAt != null && !isValid(Instant.parse(updatedAt).getMillis())) {
-            validationException.addValidationError("Rule update time is not a valid epoch");
-        }
-        if (attributeMap != null && featureType != null) {
-            featureType.validateAttributeMap(attributeMap, validationException);
-        }
-    }
-
-    public static void requireNonNullOrEmpty(String value, String message, ValidationException validationException) {
-        if (value == null || value.isEmpty()) {
-            validationException.addValidationError(message);
-        }
+        this.ruleValidator = new RuleValidator(description, attributeMap, featureValue, updatedAt, featureType);
+        this.ruleValidator.validate();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(description);
-        out.writeMap(attributeMap,
-            (o, a) -> {
-                o.writeString(a.getClass().getName());
-                o.writeString(a.getName());
-            },
-            StreamOutput::writeStringCollection
-        );
-        out.writeString(featureType.getClass().getName());
-        out.writeString(featureType.getName());
-        out.writeString(label);
+        featureType.writeTo(out);
+        out.writeMap(attributeMap, (output, attribute) -> attribute.writeTo(output), StreamOutput::writeStringCollection);
+        out.writeString(featureValue);
         out.writeString(updatedAt);
     }
 
-    public static <T extends FeatureType> Rule<T> fromXContent(final XContentParser parser, T featureType) throws IOException {
+    public static Rule fromXContent(final XContentParser parser, FeatureType featureType) throws IOException {
         return Builder.fromXContent(parser, featureType).build();
     }
 
@@ -148,15 +91,15 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
         return description;
     }
 
-    public String getLabel() {
-        return label;
+    public String getFeatureValue() {
+        return featureValue;
     }
 
     public String getUpdatedAt() {
         return updatedAt;
     }
 
-    public T getFeatureType() {
+    public FeatureType getFeatureType() {
         return featureType;
     }
 
@@ -175,7 +118,7 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
         for (Map.Entry<Attribute, Set<String>> entry : attributeMap.entrySet()) {
             builder.array(entry.getKey().getName(), entry.getValue().toArray(new String[0]));
         }
-        builder.field(featureType.getName(), label);
+        builder.field(featureType.getName(), featureValue);
         builder.field(UPDATED_AT_STRING, updatedAt);
         builder.endObject();
         return builder;
@@ -185,45 +128,46 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Rule<?> that = (Rule<?>) o;
+        Rule that = (Rule) o;
         return Objects.equals(description, that.description)
-            && Objects.equals(label, that.label)
-            && Objects.equals(featureType, that.featureType)
-            && Objects.equals(attributeMap, that.attributeMap)
-            && Objects.equals(updatedAt, that.updatedAt);
+                && Objects.equals(featureValue, that.featureValue)
+                && Objects.equals(featureType, that.featureType)
+                && Objects.equals(attributeMap, that.attributeMap)
+                && Objects.equals(ruleValidator, that.ruleValidator)
+                && Objects.equals(updatedAt, that.updatedAt);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(description, label, featureType, attributeMap, updatedAt);
+        return Objects.hash(description, featureValue, featureType, attributeMap, updatedAt);
     }
 
     /**
      * builder method for the {@link Rule}
      * @return Builder object
      */
-    public static <T extends FeatureType> Builder<T> builder() {
-        return new Builder<>();
+    public static Builder builder() {
+        return new Builder();
     }
 
     /**
      * Builder class for {@link Rule}
      * @opensearch.experimental
      */
-    public static class Builder<T extends FeatureType> {
+    public static class Builder {
         private String description;
         private Map<Attribute, Set<String>> attributeMap;
-        private T featureType;
-        private String label;
+        private FeatureType featureType;
+        private String featureValue;
         private String updatedAt;
 
         private Builder() {}
 
-        public static <T extends FeatureType> Builder<T> fromXContent(XContentParser parser, T featureType) throws IOException {
+        public static Builder fromXContent(XContentParser parser, FeatureType featureType) throws IOException {
             if (parser.currentToken() == null) {
                 parser.nextToken();
             }
-            Builder<T> builder = builder();
+            Builder builder = builder();
             XContentParser.Token token = parser.currentToken();
 
             if (token != XContentParser.Token.START_OBJECT) {
@@ -241,7 +185,7 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
                         builder.updatedAt(parser.text());
                     } else if (fieldName.equals(featureType.getName())) {
                         builder.featureType(featureType);
-                        builder.label(parser.text());
+                        builder.featureValue(parser.text());
                     }
                 } else if (token == XContentParser.Token.START_ARRAY) {
                     fromXContentParseArray(parser, fieldName, featureType, attributeMap1);
@@ -250,8 +194,12 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
             return builder.attributeMap(attributeMap1);
         }
 
-        public static <T extends FeatureType> void fromXContentParseArray(XContentParser parser, String fieldName, T featureType, Map<Attribute, Set<String>> attributeMap)
-            throws IOException {
+        public static void fromXContentParseArray(
+                XContentParser parser,
+                String fieldName,
+                FeatureType featureType,
+                Map<Attribute, Set<String>> attributeMap
+        ) throws IOException {
             Attribute attribute = featureType.getAttributeFromName(fieldName);
             if (attribute == null) {
                 throw new XContentParseException(fieldName + " is not a valid attribute within the " + featureType.getName() + " feature.");
@@ -267,37 +215,41 @@ public class Rule<T extends FeatureType> implements Writeable, ToXContentObject 
             attributeMap.put(attribute, attributeValueSet);
         }
 
-        public Builder<T> description(String description) {
+        public Builder description(String description) {
             this.description = description;
             return this;
         }
 
-        public Builder<T> label(String label) {
-            this.label = label;
+        public Builder featureValue(String featureValue) {
+            this.featureValue = featureValue;
             return this;
         }
 
-        public Builder<T> attributeMap(Map<Attribute, Set<String>> attributeMap) {
+        public Builder attributeMap(Map<Attribute, Set<String>> attributeMap) {
             this.attributeMap = attributeMap;
             return this;
         }
 
-        public Builder<T> featureType(T featureType) {
+        public Builder featureType(FeatureType featureType) {
             this.featureType = featureType;
             return this;
         }
 
-        public Builder<T> updatedAt(String updatedAt) {
+        public Builder updatedAt(String updatedAt) {
             this.updatedAt = updatedAt;
             return this;
         }
 
-        public Rule<T> build() {
-            return new Rule<>(description, attributeMap, featureType, label, updatedAt);
+        public Rule build() {
+            return new Rule(description, attributeMap, featureType, featureValue, updatedAt);
         }
 
-        public String getLabel() {
-            return label;
+        public String getDescription() {
+            return description;
+        }
+
+        public String getFeatureValue() {
+            return featureValue;
         }
 
         public Map<Attribute, Set<String>> getAttributeMap() {

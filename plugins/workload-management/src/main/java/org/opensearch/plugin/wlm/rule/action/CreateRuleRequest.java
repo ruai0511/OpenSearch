@@ -27,13 +27,13 @@ import java.io.IOException;
  * @opensearch.experimental
  */
 public class CreateRuleRequest extends ActionRequest {
-    private final Rule<QueryGroupFeatureType> rule;
+    private final Rule rule;
 
     /**
      * Constructor for CreateRuleRequest
      * @param rule - A {@link Rule} object
      */
-    CreateRuleRequest(Rule<QueryGroupFeatureType> rule) {
+    CreateRuleRequest(Rule rule) {
         this.rule = rule;
     }
 
@@ -43,7 +43,7 @@ public class CreateRuleRequest extends ActionRequest {
      */
     CreateRuleRequest(StreamInput in) throws IOException {
         super(in);
-        rule = new Rule<>(in);
+        rule = new Rule(in);
     }
 
     /**
@@ -51,7 +51,7 @@ public class CreateRuleRequest extends ActionRequest {
      * @param parser - A {@link XContentParser} object
      */
     public static CreateRuleRequest fromXContent(XContentParser parser) throws IOException {
-        Builder<QueryGroupFeatureType> builder = Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE);
+        Builder builder = Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE);
         return new CreateRuleRequest(builder.updatedAt(Instant.now().toString()).build());
     }
 
@@ -69,7 +69,7 @@ public class CreateRuleRequest extends ActionRequest {
     /**
      * Rule getter
      */
-    public Rule<QueryGroupFeatureType> getRule() {
+    public Rule getRule() {
         return rule;
     }
 }

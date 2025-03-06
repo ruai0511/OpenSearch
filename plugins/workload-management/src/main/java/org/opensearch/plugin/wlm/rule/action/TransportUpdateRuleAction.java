@@ -43,6 +43,6 @@ public class TransportUpdateRuleAction extends HandledTransportAction<UpdateRule
 
     @Override
     protected void doExecute(Task task, UpdateRuleRequest request, ActionListener<UpdateRuleResponse> listener) {
-
+        rulePersistenceService.updateRule(request, listener);
     }
 }

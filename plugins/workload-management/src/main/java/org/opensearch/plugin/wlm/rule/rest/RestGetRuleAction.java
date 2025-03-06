@@ -39,6 +39,7 @@ import static org.opensearch.autotagging.Rule._ID_STRING;
  * @opensearch.experimental
  */
 public class RestGetRuleAction extends BaseRestHandler {
+    public static final String SEARCH_AFTER_STRING = "search_after";
 
     /**
      * Constructor for RestGetRuleAction
@@ -62,13 +63,13 @@ public class RestGetRuleAction extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         final Map<Attribute, Set<String>> attributeFilters = new HashMap<>();
         for (String attributeName : request.params().keySet()) {
-            if (attributeName.equals(_ID_STRING)) {
+            if (attributeName.equals(_ID_STRING) || attributeName.equals(SEARCH_AFTER_STRING)) {
                 continue;
             }
             String[] valuesArray = request.param(attributeName).split(",");
             attributeFilters.put(QueryGroupAttribute.fromName(attributeName), new HashSet<>(Arrays.asList(valuesArray)));
         }
-        final GetRuleRequest getRuleRequest = new GetRuleRequest(request.param(_ID_STRING), attributeFilters);
+        final GetRuleRequest getRuleRequest = new GetRuleRequest(request.param(_ID_STRING), attributeFilters, request.param(SEARCH_AFTER_STRING));
         return channel -> client.execute(GetRuleAction.INSTANCE, getRuleRequest, getRuleResponse(channel));
     }
 

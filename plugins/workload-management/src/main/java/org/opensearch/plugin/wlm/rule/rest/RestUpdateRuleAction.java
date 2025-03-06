@@ -25,6 +25,7 @@ import org.opensearch.rest.action.RestResponseListener;
 import java.io.IOException;
 import java.util.List;
 
+import static org.opensearch.autotagging.Rule._ID_STRING;
 import static org.opensearch.rest.RestRequest.Method.POST;
 import static org.opensearch.rest.RestRequest.Method.PUT;
 
@@ -34,9 +35,6 @@ import static org.opensearch.rest.RestRequest.Method.PUT;
  */
 public class RestUpdateRuleAction extends BaseRestHandler {
 
-    /**
-     * Constructor for RestUpdateRuleAction
-     */
     public RestUpdateRuleAction() {}
 
     @Override
@@ -55,7 +53,7 @@ public class RestUpdateRuleAction extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         try (XContentParser parser = request.contentParser()) {
-            UpdateRuleRequest updateRuleRequest = UpdateRuleRequest.fromXContent(parser, request.param("_id"));
+            UpdateRuleRequest updateRuleRequest = UpdateRuleRequest.fromXContent(parser, request.param(_ID_STRING));
             return channel -> client.execute(UpdateRuleAction.INSTANCE, updateRuleRequest, updateRuleResponse(channel));
         }
     }

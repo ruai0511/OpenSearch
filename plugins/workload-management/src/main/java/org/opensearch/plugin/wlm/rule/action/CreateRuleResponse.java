@@ -29,7 +29,7 @@ import static org.opensearch.autotagging.Rule._ID_STRING;
  */
 public class CreateRuleResponse extends ActionResponse implements ToXContent, ToXContentObject {
     private final String _id;
-    private final Rule<QueryGroupFeatureType> rule;
+    private final Rule rule;
     private final RestStatus restStatus;
 
     /**
@@ -37,7 +37,7 @@ public class CreateRuleResponse extends ActionResponse implements ToXContent, To
      * @param rule - The Rule to be included in the response
      * @param restStatus - The restStatus for the response
      */
-    public CreateRuleResponse(String id, final Rule<QueryGroupFeatureType> rule, RestStatus restStatus) {
+    public CreateRuleResponse(String id, final Rule rule, RestStatus restStatus) {
         this._id = id;
         this.rule = rule;
         this.restStatus = restStatus;
@@ -49,7 +49,7 @@ public class CreateRuleResponse extends ActionResponse implements ToXContent, To
      */
     public CreateRuleResponse(StreamInput in) throws IOException {
         _id = in.readString();
-        rule = new Rule<>(in);
+        rule = new Rule(in);
         restStatus = RestStatus.readFrom(in);
     }
 
@@ -68,7 +68,7 @@ public class CreateRuleResponse extends ActionResponse implements ToXContent, To
     /**
      * rule getter
      */
-    public Rule<QueryGroupFeatureType> getRule() {
+    public Rule getRule() {
         return rule;
     }
 

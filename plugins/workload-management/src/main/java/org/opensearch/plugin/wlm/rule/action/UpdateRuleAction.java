@@ -11,7 +11,7 @@ package org.opensearch.plugin.wlm.rule.action;
 import org.opensearch.action.ActionType;
 
 /**
- * Transport action to update Rule
+ * Action type for updating a Rule in workload management
  *
  * @opensearch.experimental
  */

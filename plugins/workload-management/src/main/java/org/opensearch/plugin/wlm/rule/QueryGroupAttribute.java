@@ -14,6 +14,8 @@ import org.opensearch.autotagging.AutoTaggingRegistry;
 import org.opensearch.core.common.io.stream.StreamOutput;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Attributes specific to the query group feature.
@@ -25,27 +27,12 @@ public enum QueryGroupAttribute implements Attribute {
 
     QueryGroupAttribute(String name) {
         this.name = name;
-    }
-
-    static {
-        for (QueryGroupAttribute attr: QueryGroupAttribute.values()) {
-            attr.registerAttribute();
-        }
+        validateAttribute();
     }
 
     @Override
     public String getName() {
         return name;
-    }
-
-    @Override
-    public void registerAttribute() {
-        AutoTaggingRegistry.registerAttribute(this);
-    }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(name);
     }
 
     public static QueryGroupAttribute fromName(String name) {
@@ -55,5 +42,13 @@ public enum QueryGroupAttribute implements Attribute {
             }
         }
         throw new IllegalArgumentException("Unknown QueryGroupAttribute: " + name);
+    }
+
+    public static Map<String, Attribute> toMap() {
+        Map<String, Attribute> map = new HashMap<>();
+        for (QueryGroupAttribute attr : QueryGroupAttribute.values()) {
+            map.put(attr.getName(), attr);
+        }
+        return map;
     }
 }
