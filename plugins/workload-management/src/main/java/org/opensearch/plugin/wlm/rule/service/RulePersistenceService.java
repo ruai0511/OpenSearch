@@ -203,7 +203,12 @@ public class RulePersistenceService {
      * @param searchAfter - The sort values from the last document of the previous page, used for pagination
      * @param listener - ActionListener for GetRuleResponse
      */
-    public void getRule(String id, Map<Attribute, Set<String>> attributeFilters, String searchAfter, ActionListener<GetRuleResponse> listener) {
+    public void getRule(
+        String id,
+        Map<Attribute, Set<String>> attributeFilters,
+        String searchAfter,
+        ActionListener<GetRuleResponse> listener
+    ) {
         if (id != null) {
             fetchRuleById(id, listener);
         } else {
@@ -217,40 +222,12 @@ public class RulePersistenceService {
      * @param listener - ActionListener for GetRuleResponse
      */
     void fetchRuleById(String id, ActionListener<GetRuleResponse> listener) {
-        try (ThreadContext.StoredContext storedContext = getContext()) {
+        try (ThreadContext.StoredContext context = getContext()) {
             client.prepareGet(RULES_INDEX, id)
-                .execute(ActionListener.wrap(
-                    getResponse -> handleGetOneRuleResponse(id, getResponse, listener),
-                    e -> {
-                        logger.error("Failed to fetch rule with ID {}: {}", id, e.getMessage());
-                        listener.onFailure(e);
-                    }
-                ));
-        }
-    }
-
-    /**
-     * Process getResponse from index and send a GetRuleResponse
-     * @param id - The id of the rule to get
-     * @param getResponse - Response received from index
-     * @param listener - ActionListener for GetRuleResponse
-     */
-    private void handleGetOneRuleResponse(String id, GetResponse getResponse, ActionListener<GetRuleResponse> listener) {
-        if (getResponse.isExists()) {
-            try (ThreadContext.StoredContext context = getContext()) {
-                XContentParser parser = MediaTypeRegistry.JSON.xContent()
-                        .createParser(
-                                NamedXContentRegistry.EMPTY,
-                                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                                getResponse.getSourceAsString()
-                        );
-                listener.onResponse(new GetRuleResponse(Map.of(id, Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE).build()), null, RestStatus.OK));
-            } catch (IOException e) {
-                logger.error("Error parsing rule with ID {}: {}", id, e.getMessage());
-                listener.onFailure(e);
-            }
-        } else {
-            listener.onFailure(new ResourceNotFoundException("Rule with ID " + id + " not found."));
+                .execute(ActionListener.wrap(getResponse -> handleGetOneRuleResponse(id, getResponse, listener), e -> {
+                    logger.error("Failed to fetch rule with ID {}: {}", id, e.getMessage());
+                    listener.onFailure(e);
+                }));
         }
     }
 
@@ -260,19 +237,16 @@ public class RulePersistenceService {
      * @param searchAfter - The sort values from the last document of the previous page, used for pagination
      * @param listener - ActionListener for GetRuleResponse
      */
-    private void fetchAllRules(Map<Attribute, Set<String>> attributeFilters,
-                               String searchAfter,
-                               ActionListener<GetRuleResponse> listener) {
-        try (ThreadContext.StoredContext storedContext = getContext()) {
+    private void fetchAllRules(Map<Attribute, Set<String>> attributeFilters, String searchAfter, ActionListener<GetRuleResponse> listener) {
+        try (ThreadContext.StoredContext context = getContext()) {
             client.prepareSearch(RULES_INDEX)
                 .setSize(0)
-                .execute(ActionListener.wrap(
-                    countResponse -> handleCountResponse(countResponse, attributeFilters, searchAfter, listener),
-                    e -> {
+                .execute(
+                    ActionListener.wrap(countResponse -> handleCountResponse(countResponse, attributeFilters, searchAfter, listener), e -> {
                         logger.error("Failed to check if index is empty: {}", e.getMessage());
                         listener.onFailure(e);
-                    }
-                ));
+                    })
+                );
         }
     }
 
@@ -285,21 +259,22 @@ public class RulePersistenceService {
      * @param searchAfter     The searchAfter parameter for pagination.
      * @param listener        The action listener to handle the final response or failure.
      */
-    void handleCountResponse(SearchResponse countResponse, Map<Attribute, Set<String>> attributeFilters,
-                             String searchAfter, ActionListener<GetRuleResponse> listener) {
-        try (ThreadContext.StoredContext storedContext = getContext()) {
+    void handleCountResponse(
+        SearchResponse countResponse,
+        Map<Attribute, Set<String>> attributeFilters,
+        String searchAfter,
+        ActionListener<GetRuleResponse> listener
+    ) {
+        try (ThreadContext.StoredContext context = getContext()) {
             if (countResponse.getHits().getTotalHits().value == 0) {
                 listener.onResponse(new GetRuleResponse(new HashMap<>(), null, RestStatus.OK));
                 return;
             }
             SearchRequestBuilder searchRequest = buildGetAllRuleSearchRequest(attributeFilters, searchAfter);
-            searchRequest.execute(ActionListener.wrap(
-                searchResponse -> handleGetAllRuleResponse(searchResponse, listener),
-                e -> {
-                    logger.error("Failed to fetch all rules: {}", e.getMessage());
-                    listener.onFailure(e);
-                }
-            ));
+            searchRequest.execute(ActionListener.wrap(searchResponse -> handleGetAllRuleResponse(searchResponse, listener), e -> {
+                logger.error("Failed to fetch all rules: {}", e.getMessage());
+                listener.onFailure(e);
+            }));
         }
     }
 
@@ -309,13 +284,13 @@ public class RulePersistenceService {
      * @param attributeFilters A map of attributes to their associated set of values used to filter the rules.
      * @param searchAfter      A cursor to enable pagination, used to fetch results after a specific document.
      */
-    SearchRequestBuilder buildGetAllRuleSearchRequest(Map<Attribute, Set<String>> attributeFilters,
-                                                      String searchAfter) {
-        try (ThreadContext.StoredContext storedContext = getContext()) {
+    SearchRequestBuilder buildGetAllRuleSearchRequest(Map<Attribute, Set<String>> attributeFilters, String searchAfter) {
+        try (ThreadContext.StoredContext context = getContext()) {
             BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
             for (Map.Entry<Attribute, Set<String>> entry : attributeFilters.entrySet()) {
                 Attribute attribute = entry.getKey();
                 Set<String> values = entry.getValue();
+
                 if (values != null && !values.isEmpty()) {
                     BoolQueryBuilder attributeQuery = QueryBuilders.boolQuery();
                     for (String value : values) {
@@ -326,13 +301,36 @@ public class RulePersistenceService {
             }
             boolQuery.filter(QueryBuilders.existsQuery(QueryGroupFeatureType.NAME));
             SearchRequestBuilder searchRequest = client.prepareSearch(RULES_INDEX)
-                    .setQuery(boolQuery)
-                    .setSize(MAX_RETURN_SIZE_ALLOWED_PER_GET_REQUEST)
-                    .addSort(_ID_STRING, SortOrder.ASC);
+                .setQuery(boolQuery)
+                .setSize(MAX_RETURN_SIZE_ALLOWED_PER_GET_REQUEST)
+                .addSort(_ID_STRING, SortOrder.ASC);
             if (searchAfter != null) {
-                searchRequest.searchAfter(new Object[]{searchAfter});
+                searchRequest.searchAfter(new Object[] { searchAfter });
             }
             return searchRequest;
+        }
+    }
+
+
+    /**
+     * Process getResponse from index and send a GetRuleResponse
+     * @param id - The id of the rule to get
+     * @param getResponse - Response received from index
+     * @param listener - ActionListener for GetRuleResponse
+     */
+    private void handleGetOneRuleResponse(String id, GetResponse getResponse, ActionListener<GetRuleResponse> listener) {
+        if (!getResponse.isExists()) {
+            logger.error("Rule with ID " + id + " not found.");
+            listener.onFailure(new ResourceNotFoundException("Rule with ID " + id + " doesn't exist in the .rules index."));
+            return;
+        }
+        try (ThreadContext.StoredContext context = getContext()) {
+            Map.Entry<String, Rule> ruleEntry = parseRule(id, getResponse.getSourceAsString());
+            if (ruleEntry == null) {
+                listener.onFailure(new IOException("Failed to parse rule with ID: " + id));
+                return;
+            }
+            listener.onResponse(new GetRuleResponse(Map.of(ruleEntry.getKey(), ruleEntry.getValue()), null, RestStatus.OK));
         }
     }
 
@@ -344,19 +342,22 @@ public class RulePersistenceService {
     void handleGetAllRuleResponse(SearchResponse searchResponse, ActionListener<GetRuleResponse> listener) {
         List<SearchHit> hits = Arrays.asList(searchResponse.getHits().getHits());
         try (ThreadContext.StoredContext context = getContext()) {
-            Map<String, Rule> ruleMap = hits.stream().map(hit -> {
-                String hitId = hit.getId();
-                try {
-                    XContentParser parser = MediaTypeRegistry.JSON.xContent()
-                        .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, hit.getSourceAsString());
-                    return Map.entry(hitId, Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE).build());
-                } catch (IOException e) {
-                    logger.info("Issue met when parsing rule from hit, the feature type for rule id {} is probably not query_group: {}", hitId, e.getMessage());
-                    return null;
-                }
-            }).filter(Objects::nonNull).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            String nextSearchAfter = hits.isEmpty() ? null : hits.get(hits.size() - 1).getId();
+            Map<String, Rule> ruleMap = hits.stream()
+                .map(hit -> parseRule(hit.getId(), hit.getSourceAsString()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            String nextSearchAfter = hits.isEmpty() ? null : hits.getLast().getId();
             listener.onResponse(new GetRuleResponse(ruleMap, nextSearchAfter, RestStatus.OK));
+        }
+    }
+
+    private Map.Entry<String, Rule> parseRule(String id, String source) {
+        try (XContentParser parser = MediaTypeRegistry.JSON.xContent()
+            .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, source)) {
+            return Map.entry(id, Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE).build());
+        } catch (IOException e) {
+            logger.info("Issue met when parsing rule for ID {}: {}", id, e.getMessage());
+            return null;
         }
     }
 
