@@ -11,12 +11,8 @@ package org.opensearch.plugin.wlm.rule;
 import org.opensearch.autotagging.Attribute;
 import org.opensearch.autotagging.AutoTaggingRegistry;
 import org.opensearch.autotagging.FeatureType;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
 
 public class QueryGroupFeatureType implements FeatureType {
     public static final QueryGroupFeatureType INSTANCE = new QueryGroupFeatureType();

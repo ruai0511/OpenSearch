@@ -14,7 +14,10 @@ import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
 
-import static org.opensearch.plugin.wlm.RuleTestUtils.*;
+import static org.opensearch.plugin.wlm.RuleTestUtils.ATTRIBUTE_MAP;
+import static org.opensearch.plugin.wlm.RuleTestUtils.DESCRIPTION_ONE;
+import static org.opensearch.plugin.wlm.RuleTestUtils.FEATURE_VALUE_ONE;
+import static org.opensearch.plugin.wlm.RuleTestUtils._ID_ONE;
 
 public class UpdateRuleRequestTests extends OpenSearchTestCase {
 

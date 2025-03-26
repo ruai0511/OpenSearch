@@ -9,7 +9,6 @@
 package org.opensearch.plugin.wlm.rule.rest;
 
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;

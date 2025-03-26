@@ -10,10 +10,9 @@ package org.opensearch.plugin.wlm.rule.action;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.autotagging.Attribute;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.autotagging.Attribute;
-import org.opensearch.plugin.wlm.rule.QueryGroupAttribute;
 import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 
 import java.io.IOException;

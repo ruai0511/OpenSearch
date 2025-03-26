@@ -8,6 +8,7 @@
 
 package org.opensearch.plugin.wlm.rule.rest;
 
+import org.opensearch.autotagging.Attribute;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
@@ -21,7 +22,6 @@ import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.action.RestResponseListener;
-import org.opensearch.autotagging.Attribute;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -31,8 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.opensearch.rest.RestRequest.Method.GET;
 import static org.opensearch.autotagging.Rule._ID_STRING;
+import static org.opensearch.rest.RestRequest.Method.GET;
 
 /**
  * Rest action to get a Rule
@@ -69,7 +69,11 @@ public class RestGetRuleAction extends BaseRestHandler {
             String[] valuesArray = request.param(attributeName).split(",");
             attributeFilters.put(QueryGroupAttribute.fromName(attributeName), new HashSet<>(Arrays.asList(valuesArray)));
         }
-        final GetRuleRequest getRuleRequest = new GetRuleRequest(request.param(_ID_STRING), attributeFilters, request.param(SEARCH_AFTER_STRING));
+        final GetRuleRequest getRuleRequest = new GetRuleRequest(
+            request.param(_ID_STRING),
+            attributeFilters,
+            request.param(SEARCH_AFTER_STRING)
+        );
         return channel -> client.execute(GetRuleAction.INSTANCE, getRuleRequest, getRuleResponse(channel));
     }
 

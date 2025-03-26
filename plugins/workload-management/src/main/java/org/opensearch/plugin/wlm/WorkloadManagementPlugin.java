@@ -9,11 +9,8 @@
 package org.opensearch.plugin.wlm;
 
 import org.opensearch.action.ActionRequest;
-import org.opensearch.autotagging.Attribute;
-import org.opensearch.autotagging.FeatureType;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.inject.Module;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
@@ -21,7 +18,6 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.core.action.ActionResponse;
-import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.plugin.wlm.querygroup.action.CreateQueryGroupAction;
 import org.opensearch.plugin.wlm.querygroup.action.DeleteQueryGroupAction;
@@ -36,7 +32,12 @@ import org.opensearch.plugin.wlm.querygroup.rest.RestDeleteQueryGroupAction;
 import org.opensearch.plugin.wlm.querygroup.rest.RestGetQueryGroupAction;
 import org.opensearch.plugin.wlm.querygroup.rest.RestUpdateQueryGroupAction;
 import org.opensearch.plugin.wlm.querygroup.service.QueryGroupPersistenceService;
-import org.opensearch.plugin.wlm.rule.action.*;
+import org.opensearch.plugin.wlm.rule.action.CreateRuleAction;
+import org.opensearch.plugin.wlm.rule.action.GetRuleAction;
+import org.opensearch.plugin.wlm.rule.action.TransportCreateRuleAction;
+import org.opensearch.plugin.wlm.rule.action.TransportGetRuleAction;
+import org.opensearch.plugin.wlm.rule.action.TransportUpdateRuleAction;
+import org.opensearch.plugin.wlm.rule.action.UpdateRuleAction;
 import org.opensearch.plugin.wlm.rule.rest.RestCreateRuleAction;
 import org.opensearch.plugin.wlm.rule.rest.RestGetRuleAction;
 import org.opensearch.plugin.wlm.rule.rest.RestUpdateRuleAction;
@@ -45,10 +46,8 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
-import org.opensearch.search.DocValueFormat;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 

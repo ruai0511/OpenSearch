@@ -10,12 +10,12 @@ package org.opensearch.plugin.wlm.rule.action;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.autotagging.Attribute;
+import org.opensearch.autotagging.Rule.Builder;
 import org.opensearch.autotagging.RuleValidator;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.autotagging.Rule.Builder;
-import org.opensearch.autotagging.Attribute;
 import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 
 import java.io.IOException;
@@ -40,7 +40,8 @@ public class UpdateRuleRequest extends ActionRequest {
      * @param attributeMap - attributeMap for the Rule
      * @param featureValue - featureValue for the Rule
      */
-    public UpdateRuleRequest(String _id, String description, Map<Attribute, Set<String>> attributeMap, String featureValue) throws IOException {
+    public UpdateRuleRequest(String _id, String description, Map<Attribute, Set<String>> attributeMap, String featureValue)
+        throws IOException {
         this._id = _id;
         this.description = description;
         this.attributeMap = attributeMap;
@@ -70,10 +71,10 @@ public class UpdateRuleRequest extends ActionRequest {
 
     @Override
     public ActionRequestValidationException validate() {
-        RuleValidator validator = new RuleValidator(description, attributeMap,featureValue, null, QueryGroupFeatureType.INSTANCE);
+        RuleValidator validator = new RuleValidator(description, attributeMap, featureValue, null, QueryGroupFeatureType.INSTANCE);
         validator.validateUpdatingRuleParams();
         return null;
-     }
+    }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {

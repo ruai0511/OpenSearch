@@ -8,12 +8,8 @@
 
 package org.opensearch.plugin.wlm.rule;
 
-
 import org.opensearch.autotagging.Attribute;
-import org.opensearch.autotagging.AutoTaggingRegistry;
-import org.opensearch.core.common.io.stream.StreamOutput;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 

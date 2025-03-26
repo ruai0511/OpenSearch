@@ -11,14 +11,15 @@ package org.opensearch.plugin.wlm.rule.action;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.autotagging.Rule;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import static org.opensearch.plugin.wlm.RuleTestUtils.*;
+import static org.opensearch.plugin.wlm.RuleTestUtils.PATTERN_ONE;
+import static org.opensearch.plugin.wlm.RuleTestUtils.SEARCH_AFTER;
+import static org.opensearch.plugin.wlm.RuleTestUtils._ID_ONE;
 import static org.opensearch.plugin.wlm.rule.QueryGroupAttribute.INDEX_PATTERN;
 
 public class GetRuleRequestTests extends OpenSearchTestCase {

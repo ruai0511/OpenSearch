@@ -8,18 +8,16 @@
 
 package org.opensearch.plugin.wlm.rule.action;
 
+import org.opensearch.autotagging.Rule;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.autotagging.Rule;
 
 import java.io.IOException;
-import java.util.Map;
 
 import static org.opensearch.plugin.wlm.RuleTestUtils._ID_ONE;
 import static org.opensearch.plugin.wlm.RuleTestUtils.assertEqualRule;
@@ -50,15 +48,15 @@ public class CreateRuleResponseTests extends OpenSearchTestCase {
         XContentBuilder builder = JsonXContent.contentBuilder().prettyPrint();
         CreateRuleResponse response = new CreateRuleResponse(_ID_ONE, ruleOne, RestStatus.OK);
         String actual = response.toXContent(builder, mock(ToXContent.Params.class)).toString();
-        String expected = "{\n" +
-            "  \"_id\" : \"AgfUO5Ja9yfvhdONlYi3TQ==\",\n" +
-            "  \"description\" : \"description_1\",\n" +
-            "  \"index_pattern\" : [\n" +
-            "    \"pattern_1\"\n" +
-            "  ],\n" +
-            "  \"query_group\" : \"feature_value_one\",\n" +
-            "  \"updated_at\" : \"2024-01-26T08:58:57.558Z\"\n" +
-            "}";
+        String expected = "{\n"
+            + "  \"_id\" : \"AgfUO5Ja9yfvhdONlYi3TQ==\",\n"
+            + "  \"description\" : \"description_1\",\n"
+            + "  \"index_pattern\" : [\n"
+            + "    \"pattern_1\"\n"
+            + "  ],\n"
+            + "  \"query_group\" : \"feature_value_one\",\n"
+            + "  \"updated_at\" : \"2024-01-26T08:58:57.558Z\"\n"
+            + "}";
         assertEquals(expected, actual);
     }
 }

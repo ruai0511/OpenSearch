@@ -8,52 +8,48 @@
 
 package org.opensearch.plugin.wlm.rule.service;
 
-import org.mockito.ArgumentCaptor;
 import org.opensearch.ResourceNotFoundException;
-import org.opensearch.action.get.GetRequestBuilder;
-import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequestBuilder;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
+import org.opensearch.autotagging.Rule;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterState;
-import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.metadata.QueryGroup;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.core.rest.RestStatus;
-import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.engine.DocumentMissingException;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.plugin.wlm.QueryGroupTestUtils;
 import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 import org.opensearch.plugin.wlm.rule.action.CreateRuleResponse;
 import org.opensearch.plugin.wlm.rule.action.GetRuleResponse;
 import org.opensearch.plugin.wlm.rule.action.UpdateRuleRequest;
 import org.opensearch.plugin.wlm.rule.action.UpdateRuleResponse;
+import org.opensearch.search.sort.SortOrder;
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.autotagging.Rule;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.Map;
 
 import org.mockito.ArgumentCaptor;
-import org.opensearch.threadpool.ThreadPool;
 
+import static org.opensearch.autotagging.Rule._ID_STRING;
+import static org.opensearch.plugin.wlm.RuleTestUtils.ATTRIBUTE_MAP;
+import static org.opensearch.plugin.wlm.RuleTestUtils.DESCRIPTION_ONE;
+import static org.opensearch.plugin.wlm.RuleTestUtils.DESCRIPTION_TWO;
 import static org.opensearch.plugin.wlm.RuleTestUtils._ID_ONE;
-import static org.opensearch.plugin.wlm.RuleTestUtils.assertEqualRules;
+import static org.opensearch.plugin.wlm.RuleTestUtils._ID_TWO;
+import static org.opensearch.plugin.wlm.RuleTestUtils.assertEqualRule;
 import static org.opensearch.plugin.wlm.RuleTestUtils.ruleOne;
 import static org.opensearch.plugin.wlm.RuleTestUtils.setUpRulePersistenceService;
-import static org.opensearch.plugin.wlm.RuleTestUtils.*;
 import static org.opensearch.plugin.wlm.rule.service.RulePersistenceService.RULES_INDEX;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -89,57 +85,57 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
         clearInvocations(client, listener);
     }
 
-    public void testGetRuleById() throws IOException {
-        String ruleSource = ruleOne.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).toString();
-        ActionListener<GetRuleResponse> listener = mock(ActionListener.class);
+    public void testBuildGetRuleQuery_WithId() {
         RulePersistenceService rulePersistenceService = setUpRulePersistenceService(new HashMap<>());
-        Client client = rulePersistenceService.getClient();
-        GetRequestBuilder getRequestBuilder = mock(GetRequestBuilder.class);
-        GetResponse getResponse = mock(GetResponse.class);
-
-        when(getResponse.isExists()).thenReturn(true);
-        when(getResponse.getSourceAsString()).thenReturn(ruleSource);
-        when(client.prepareGet(eq(RULES_INDEX), eq(_ID_ONE))).thenReturn(getRequestBuilder);
-        doAnswer(invocation -> {
-            ActionListener<GetResponse> actionListener = invocation.getArgument(0);
-            actionListener.onResponse(getResponse);
-            return null;
-        }).when(getRequestBuilder).execute(any(ActionListener.class));
-
-        rulePersistenceService.getRule(_ID_ONE, new HashMap<>(), null, listener);
-
-        ArgumentCaptor<GetRuleResponse> captor = ArgumentCaptor.forClass(GetRuleResponse.class);
-        verify(listener).onResponse(captor.capture());
-        GetRuleResponse response = captor.getValue();
-        assertNotNull(response);
-        assertEqualRules(Map.of(_ID_ONE, ruleOne), response.getRules(), false);
-        clearInvocations(client, getRequestBuilder, getResponse, listener);
+        BoolQueryBuilder query = rulePersistenceService.buildGetRuleQuery(_ID_ONE, new HashMap<>());
+        assertTrue(query.hasClauses());
+        assertEquals(QueryBuilders.termQuery(_ID_STRING, _ID_ONE).toString(), query.must().get(0).toString());
     }
 
-    public void testGetRuleByIdNotFound() {
-        String nonExistentRuleId = "non-existent-rule";
+    public void testBuildGetRuleQuery_WithFilters() {
+        RulePersistenceService rulePersistenceService = setUpRulePersistenceService(new HashMap<>());
+        BoolQueryBuilder query = rulePersistenceService.buildGetRuleQuery(null, ATTRIBUTE_MAP);
+        assertTrue(query.hasClauses());
+        assertEquals(1, query.must().size());
+        assertTrue(query.filter().contains(QueryBuilders.existsQuery(QueryGroupFeatureType.NAME)));
+    }
+
+    public void testGetRule_WithId() {
         RulePersistenceService rulePersistenceService = setUpRulePersistenceService(new HashMap<>());
         Client client = rulePersistenceService.getClient();
-        GetRequestBuilder getRequestBuilder = mock(GetRequestBuilder.class);
-        GetResponse getResponse = mock(GetResponse.class);
         ActionListener<GetRuleResponse> listener = mock(ActionListener.class);
+        SearchRequestBuilder searchRequestBuilder = mock(SearchRequestBuilder.class);
+        SetupMocksForGetRule(client, searchRequestBuilder);
 
-        when(client.prepareGet(RULES_INDEX, nonExistentRuleId)).thenReturn(getRequestBuilder);
-        when(getResponse.isExists()).thenReturn(false);
+        rulePersistenceService.getRule(_ID_ONE, new HashMap<>(), null, listener);
+        verify(client).prepareSearch(RulePersistenceService.RULES_INDEX);
+        verify(searchRequestBuilder).setQuery(any());
+        verify(searchRequestBuilder).execute(any());
+    }
 
+    public void testGetRule_WithSearchAfter() {
+        RulePersistenceService rulePersistenceService = setUpRulePersistenceService(new HashMap<>());
+        Client client = rulePersistenceService.getClient();
+        ActionListener<GetRuleResponse> listener = mock(ActionListener.class);
+        SearchRequestBuilder searchRequestBuilder = mock(SearchRequestBuilder.class);
+        SetupMocksForGetRule(client, searchRequestBuilder);
+        when(searchRequestBuilder.addSort(anyString(), any(SortOrder.class))).thenReturn(searchRequestBuilder);
+        when(searchRequestBuilder.searchAfter(any())).thenReturn(searchRequestBuilder);
+
+        rulePersistenceService.getRule(null, new HashMap<>(), _ID_TWO, listener);
+        verify(searchRequestBuilder).addSort(_ID_STRING, SortOrder.ASC);
+        verify(searchRequestBuilder).searchAfter(new Object[] { _ID_TWO });
+    }
+
+    public void SetupMocksForGetRule(Client client, SearchRequestBuilder searchRequestBuilder) {
+        when(client.prepareSearch(anyString())).thenReturn(searchRequestBuilder);
+        when(searchRequestBuilder.setQuery(any())).thenReturn(searchRequestBuilder);
+        when(searchRequestBuilder.setSize(anyInt())).thenReturn(searchRequestBuilder);
         doAnswer(invocation -> {
-            ActionListener<GetResponse> actionListener = invocation.getArgument(0);
-            actionListener.onResponse(getResponse);
+            ActionListener<SearchResponse> searchListener = invocation.getArgument(0);
+            searchListener.onResponse(mock(SearchResponse.class));
             return null;
-        }).when(getRequestBuilder).execute(any(ActionListener.class));
-
-        rulePersistenceService.getRule(nonExistentRuleId, new HashMap<>(), null, listener);
-
-        ArgumentCaptor<Exception> captor = ArgumentCaptor.forClass(Exception.class);
-        verify(listener).onFailure(captor.capture());
-        Exception exception = captor.getValue();
-        assertTrue(exception instanceof ResourceNotFoundException);
-        clearInvocations(client, getRequestBuilder, getResponse, listener);
+        }).when(searchRequestBuilder).execute(any());
     }
 
     public void testUpdateRule_QueryGroupNotFound() throws IOException {
@@ -152,7 +148,13 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
     }
 
     public void testComposeUpdatedRule() throws IOException {
-        Rule originalRule = new Rule(DESCRIPTION_ONE, ATTRIBUTE_MAP, QueryGroupFeatureType.INSTANCE, QueryGroupTestUtils._ID_ONE, Instant.now().toString());
+        Rule originalRule = new Rule(
+            DESCRIPTION_ONE,
+            ATTRIBUTE_MAP,
+            QueryGroupFeatureType.INSTANCE,
+            QueryGroupTestUtils._ID_ONE,
+            Instant.now().toString()
+        );
         UpdateRuleRequest request = new UpdateRuleRequest(_ID_ONE, DESCRIPTION_TWO, ATTRIBUTE_MAP, QueryGroupTestUtils._ID_ONE);
         RulePersistenceService rulePersistenceService = setUpRulePersistenceService(new HashMap<>());
         Rule updatedRule = rulePersistenceService.composeUpdatedRule(originalRule, request);
@@ -166,7 +168,13 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
         ActionListener<UpdateRuleResponse> listener = mock(ActionListener.class);
         RulePersistenceService rulePersistenceService = setUpRulePersistenceService(new HashMap<>());
         Client client = rulePersistenceService.getClient();
-        Rule updatedRule = new Rule(DESCRIPTION_ONE, ATTRIBUTE_MAP, QueryGroupFeatureType.INSTANCE, QueryGroupTestUtils._ID_ONE, Instant.now().toString());
+        Rule updatedRule = new Rule(
+            DESCRIPTION_ONE,
+            ATTRIBUTE_MAP,
+            QueryGroupFeatureType.INSTANCE,
+            QueryGroupTestUtils._ID_ONE,
+            Instant.now().toString()
+        );
         doAnswer(invocation -> {
             ActionListener<UpdateResponse> actionListener = invocation.getArgument(1);
             actionListener.onResponse(mock(UpdateResponse.class));
@@ -180,7 +188,13 @@ public class RulePersistenceServiceTests extends OpenSearchTestCase {
         ActionListener<UpdateRuleResponse> listener = mock(ActionListener.class);
         RulePersistenceService rulePersistenceService = setUpRulePersistenceService(new HashMap<>());
         Client client = rulePersistenceService.getClient();
-        Rule updatedRule = new Rule(DESCRIPTION_ONE, ATTRIBUTE_MAP, QueryGroupFeatureType.INSTANCE, QueryGroupTestUtils._ID_ONE, Instant.now().toString());
+        Rule updatedRule = new Rule(
+            DESCRIPTION_ONE,
+            ATTRIBUTE_MAP,
+            QueryGroupFeatureType.INSTANCE,
+            QueryGroupTestUtils._ID_ONE,
+            Instant.now().toString()
+        );
         doAnswer(invocation -> {
             ActionListener<UpdateResponse> actionListener = invocation.getArgument(1);
             actionListener.onFailure(new DocumentMissingException(null, _ID_ONE));

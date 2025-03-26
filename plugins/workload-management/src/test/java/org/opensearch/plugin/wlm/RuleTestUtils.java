@@ -9,6 +9,7 @@
 package org.opensearch.plugin.wlm;
 
 import org.opensearch.autotagging.Attribute;
+import org.opensearch.autotagging.Rule;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
@@ -16,11 +17,10 @@ import org.opensearch.cluster.metadata.QueryGroup;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 import org.opensearch.plugin.wlm.rule.QueryGroupAttribute;
+import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 import org.opensearch.plugin.wlm.rule.service.RulePersistenceService;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.autotagging.Rule;
 
 import java.util.Map;
 import java.util.Set;

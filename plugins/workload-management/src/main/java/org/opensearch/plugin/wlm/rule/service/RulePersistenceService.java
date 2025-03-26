@@ -10,17 +10,17 @@ package org.opensearch.plugin.wlm.rule.service;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.joda.time.Instant;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequestBuilder;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
-import org.opensearch.autotagging.FeatureType;
+import org.opensearch.autotagging.Attribute;
+import org.opensearch.autotagging.Rule;
+import org.opensearch.autotagging.Rule.Builder;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -35,22 +35,22 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.plugin.wlm.rule.QueryGroupAttribute;
 import org.opensearch.plugin.wlm.rule.QueryGroupFeatureType;
 import org.opensearch.plugin.wlm.rule.action.CreateRuleResponse;
 import org.opensearch.plugin.wlm.rule.action.GetRuleResponse;
-import org.opensearch.autotagging.Rule;
-import org.opensearch.autotagging.Rule.Builder;
-import org.opensearch.autotagging.Attribute;
 import org.opensearch.plugin.wlm.rule.action.UpdateRuleRequest;
 import org.opensearch.plugin.wlm.rule.action.UpdateRuleResponse;
-import org.opensearch.script.Script;
-import org.opensearch.script.ScriptType;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.sort.SortOrder;
+import org.joda.time.Instant;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.opensearch.autotagging.Rule._ID_STRING;
@@ -60,15 +60,22 @@ import static org.opensearch.autotagging.Rule._ID_STRING;
  * @opensearch.experimental
  */
 public class RulePersistenceService {
+    /**
+     * The system index name used for storing rules
+     */
     public static final String RULES_INDEX = ".rules";
     private final Client client;
     private final ClusterService clusterService;
     private static final Logger logger = LogManager.getLogger(RulePersistenceService.class);
+    /**
+     * The maximum number of results allowed per GET request
+     */
     private static final int MAX_RETURN_SIZE_ALLOWED_PER_GET_REQUEST = 50;
     private static final Map<String, Object> indexSettings = Map.of("index.number_of_shards", 1, "index.auto_expand_replicas", "0-all");
 
     /**
      * Constructor for RulePersistenceService
+     * @param clusterService {@link ClusterService} - The cluster service to be used by RulePersistenceService
      * @param client {@link Client} - The client to be used by RulePersistenceService
      */
     @Inject
@@ -119,15 +126,19 @@ public class RulePersistenceService {
      */
     public void checkDuplicateRule(Rule rule, ActionListener<CreateRuleResponse> listener) {
         try (ThreadContext.StoredContext ctx = getContext()) {
-            fetchAllRules(rule.getAttributeMap(), null, new ActionListener<>() {
+            getRule(null, rule.getAttributeMap(), null, new ActionListener<>() {
                 @Override
                 public void onResponse(GetRuleResponse getRuleResponse) {
                     Map<String, Rule> responseRules = getRuleResponse.getRules();
-                    for (Map.Entry<String, Rule> entry: responseRules.entrySet()) {
+                    for (Map.Entry<String, Rule> entry : responseRules.entrySet()) {
                         String ruleId = entry.getKey();
                         Rule rule = entry.getValue();
                         if (rule.getAttributeMap().size() == rule.getAttributeMap().size()) {
-                            listener.onFailure(new IllegalArgumentException("A rule that has the same attribute values already exists under rule id " + ruleId));
+                            listener.onFailure(
+                                new IllegalArgumentException(
+                                    "A rule that has the same attribute values already exists under rule id " + ruleId
+                                )
+                            );
                             return;
                         }
                     }
@@ -150,7 +161,7 @@ public class RulePersistenceService {
     public void persistRule(Rule rule, ActionListener<CreateRuleResponse> listener) {
         try (ThreadContext.StoredContext ctx = getContext()) {
             IndexRequest indexRequest = new IndexRequest(RULES_INDEX).source(
-                    rule.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)
+                rule.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)
             );
             client.index(indexRequest, ActionListener.wrap(indexResponse -> {
                 listener.onResponse(new CreateRuleResponse(indexResponse.getId(), rule, RestStatus.OK));
@@ -174,7 +185,9 @@ public class RulePersistenceService {
                 listener.onResponse(true);
                 return;
             }
-            final CreateIndexRequest createIndexRequest = new CreateIndexRequest(RulePersistenceService.RULES_INDEX).settings(indexSettings);
+            final CreateIndexRequest createIndexRequest = new CreateIndexRequest(RulePersistenceService.RULES_INDEX).settings(
+                indexSettings
+            );
             client.admin().indices().create(createIndexRequest, new ActionListener<>() {
                 @Override
                 public void onResponse(CreateIndexResponse response) {
@@ -197,8 +210,9 @@ public class RulePersistenceService {
     }
 
     /**
-     * Entry point for the get rule api logic in persistence service.
-     * @param id - The id of the rule to get. Get all matching rules when id is null
+     * Entry point for the get rule api logic in persistence service. If id is provided, we only get a single rule.
+     * Otherwise, we get all rules that satisfy the attributeFilters.
+     * @param id - The id of the rule to get.
      * @param attributeFilters - A map containing the attributes that user want to filter on
      * @param searchAfter - The sort values from the last document of the previous page, used for pagination
      * @param listener - ActionListener for GetRuleResponse
@@ -209,69 +223,15 @@ public class RulePersistenceService {
         String searchAfter,
         ActionListener<GetRuleResponse> listener
     ) {
-        if (id != null) {
-            fetchRuleById(id, listener);
-        } else {
-            fetchAllRules(attributeFilters, searchAfter, listener);
-        }
-    }
-
-    /**
-     * Fetch a single rule from system index using id
-     * @param id - The id of the rule to get
-     * @param listener - ActionListener for GetRuleResponse
-     */
-    void fetchRuleById(String id, ActionListener<GetRuleResponse> listener) {
         try (ThreadContext.StoredContext context = getContext()) {
-            client.prepareGet(RULES_INDEX, id)
-                .execute(ActionListener.wrap(getResponse -> handleGetOneRuleResponse(id, getResponse, listener), e -> {
-                    logger.error("Failed to fetch rule with ID {}: {}", id, e.getMessage());
-                    listener.onFailure(e);
-                }));
-        }
-    }
-
-    /**
-     * Fetch all rule from system index based on attributeFilters.
-     * @param attributeFilters - A map containing the attributes that user want to filter on
-     * @param searchAfter - The sort values from the last document of the previous page, used for pagination
-     * @param listener - ActionListener for GetRuleResponse
-     */
-    private void fetchAllRules(Map<Attribute, Set<String>> attributeFilters, String searchAfter, ActionListener<GetRuleResponse> listener) {
-        try (ThreadContext.StoredContext context = getContext()) {
-            client.prepareSearch(RULES_INDEX)
-                .setSize(0)
-                .execute(
-                    ActionListener.wrap(countResponse -> handleCountResponse(countResponse, attributeFilters, searchAfter, listener), e -> {
-                        logger.error("Failed to check if index is empty: {}", e.getMessage());
-                        listener.onFailure(e);
-                    })
-                );
-        }
-    }
-
-    /**
-     * Processes the count response from a search query on the rules index.
-     * If no rules exist, it responds with an empty result.
-     * Otherwise, it constructs and executes a search request to retrieve all rules.
-     * @param countResponse   The response from the count query on the rules index.
-     * @param attributeFilters A map of attribute filters to apply in the search query.
-     * @param searchAfter     The searchAfter parameter for pagination.
-     * @param listener        The action listener to handle the final response or failure.
-     */
-    void handleCountResponse(
-        SearchResponse countResponse,
-        Map<Attribute, Set<String>> attributeFilters,
-        String searchAfter,
-        ActionListener<GetRuleResponse> listener
-    ) {
-        try (ThreadContext.StoredContext context = getContext()) {
-            if (countResponse.getHits().getTotalHits().value == 0) {
-                listener.onResponse(new GetRuleResponse(new HashMap<>(), null, RestStatus.OK));
-                return;
+            BoolQueryBuilder boolQuery = buildGetRuleQuery(id, attributeFilters);
+            SearchRequestBuilder searchRequest = client.prepareSearch(RULES_INDEX)
+                .setQuery(boolQuery)
+                .setSize(MAX_RETURN_SIZE_ALLOWED_PER_GET_REQUEST);
+            if (searchAfter != null) {
+                searchRequest.addSort(_ID_STRING, SortOrder.ASC).searchAfter(new Object[] { searchAfter });
             }
-            SearchRequestBuilder searchRequest = buildGetAllRuleSearchRequest(attributeFilters, searchAfter);
-            searchRequest.execute(ActionListener.wrap(searchResponse -> handleGetAllRuleResponse(searchResponse, listener), e -> {
+            searchRequest.execute(ActionListener.wrap(searchResponse -> handleGetRuleResponse(id, searchResponse, listener), e -> {
                 logger.error("Failed to fetch all rules: {}", e.getMessage());
                 listener.onFailure(e);
             }));
@@ -279,59 +239,29 @@ public class RulePersistenceService {
     }
 
     /**
-     * Builds a search request to retrieve all rules from the rules index, applying attribute-based filters
-     * and ensuring that the rules are associated with the query group feature type.
+     * Builds a bool query to retrieve rules from the rules index, applying attribute-based filters
+     * when needed and ensuring that the rules are associated with the query group feature type.
+     * @param id              The ID of the rule to fetch. If not null, the search will return only this specific rule.
      * @param attributeFilters A map of attributes to their associated set of values used to filter the rules.
-     * @param searchAfter      A cursor to enable pagination, used to fetch results after a specific document.
      */
-    SearchRequestBuilder buildGetAllRuleSearchRequest(Map<Attribute, Set<String>> attributeFilters, String searchAfter) {
-        try (ThreadContext.StoredContext context = getContext()) {
-            BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-            for (Map.Entry<Attribute, Set<String>> entry : attributeFilters.entrySet()) {
-                Attribute attribute = entry.getKey();
-                Set<String> values = entry.getValue();
-
-                if (values != null && !values.isEmpty()) {
-                    BoolQueryBuilder attributeQuery = QueryBuilders.boolQuery();
-                    for (String value : values) {
-                        attributeQuery.should(QueryBuilders.matchQuery(attribute.getName(), value));
-                    }
-                    boolQuery.must(attributeQuery);
+    BoolQueryBuilder buildGetRuleQuery(String id, Map<Attribute, Set<String>> attributeFilters) {
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        if (id != null) {
+            return boolQuery.must(QueryBuilders.termQuery(_ID_STRING, id));
+        }
+        for (Map.Entry<Attribute, Set<String>> entry : attributeFilters.entrySet()) {
+            Attribute attribute = entry.getKey();
+            Set<String> values = entry.getValue();
+            if (values != null && !values.isEmpty()) {
+                BoolQueryBuilder attributeQuery = QueryBuilders.boolQuery();
+                for (String value : values) {
+                    attributeQuery.should(QueryBuilders.matchQuery(attribute.getName(), value));
                 }
+                boolQuery.must(attributeQuery);
             }
-            boolQuery.filter(QueryBuilders.existsQuery(QueryGroupFeatureType.NAME));
-            SearchRequestBuilder searchRequest = client.prepareSearch(RULES_INDEX)
-                .setQuery(boolQuery)
-                .setSize(MAX_RETURN_SIZE_ALLOWED_PER_GET_REQUEST)
-                .addSort(_ID_STRING, SortOrder.ASC);
-            if (searchAfter != null) {
-                searchRequest.searchAfter(new Object[] { searchAfter });
-            }
-            return searchRequest;
         }
-    }
-
-
-    /**
-     * Process getResponse from index and send a GetRuleResponse
-     * @param id - The id of the rule to get
-     * @param getResponse - Response received from index
-     * @param listener - ActionListener for GetRuleResponse
-     */
-    private void handleGetOneRuleResponse(String id, GetResponse getResponse, ActionListener<GetRuleResponse> listener) {
-        if (!getResponse.isExists()) {
-            logger.error("Rule with ID " + id + " not found.");
-            listener.onFailure(new ResourceNotFoundException("Rule with ID " + id + " doesn't exist in the .rules index."));
-            return;
-        }
-        try (ThreadContext.StoredContext context = getContext()) {
-            Map.Entry<String, Rule> ruleEntry = parseRule(id, getResponse.getSourceAsString());
-            if (ruleEntry == null) {
-                listener.onFailure(new IOException("Failed to parse rule with ID: " + id));
-                return;
-            }
-            listener.onResponse(new GetRuleResponse(Map.of(ruleEntry.getKey(), ruleEntry.getValue()), null, RestStatus.OK));
-        }
+        boolQuery.filter(QueryBuilders.existsQuery(QueryGroupFeatureType.NAME));
+        return boolQuery;
     }
 
     /**
@@ -339,21 +269,31 @@ public class RulePersistenceService {
      * @param searchResponse - Response received from index
      * @param listener - ActionListener for GetRuleResponse
      */
-    void handleGetAllRuleResponse(SearchResponse searchResponse, ActionListener<GetRuleResponse> listener) {
+    void handleGetRuleResponse(String id, SearchResponse searchResponse, ActionListener<GetRuleResponse> listener) {
         List<SearchHit> hits = Arrays.asList(searchResponse.getHits().getHits());
-        try (ThreadContext.StoredContext context = getContext()) {
-            Map<String, Rule> ruleMap = hits.stream()
-                .map(hit -> parseRule(hit.getId(), hit.getSourceAsString()))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            String nextSearchAfter = hits.isEmpty() ? null : hits.getLast().getId();
-            listener.onResponse(new GetRuleResponse(ruleMap, nextSearchAfter, RestStatus.OK));
+        if (id != null && hits.isEmpty()) {
+            logger.error("Rule with ID " + id + " not found.");
+            listener.onFailure(new ResourceNotFoundException("Rule with ID " + id + " doesn't exist in the .rules index."));
+            return;
         }
+        Map<String, Rule> ruleMap = hits.stream()
+            .map(hit -> parseRule(hit.getId(), hit.getSourceAsString()))
+            .filter(Objects::nonNull)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        String nextSearchAfter = hits.isEmpty() ? null : hits.get(hits.size() - 1).getId();
+        listener.onResponse(new GetRuleResponse(ruleMap, nextSearchAfter, RestStatus.OK));
     }
 
+    /**
+     * Parses a source string into a Rule object
+     * @param id - document id for the Rule object
+     * @param source - The raw source string representing the rule to be parsed
+     */
     private Map.Entry<String, Rule> parseRule(String id, String source) {
-        try (XContentParser parser = MediaTypeRegistry.JSON.xContent()
-            .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, source)) {
+        try (
+            XContentParser parser = MediaTypeRegistry.JSON.xContent()
+                .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, source)
+        ) {
             return Map.entry(id, Builder.fromXContent(parser, QueryGroupFeatureType.INSTANCE).build());
         } catch (IOException e) {
             logger.info("Issue met when parsing rule for ID {}: {}", id, e.getMessage());
@@ -374,7 +314,7 @@ public class RulePersistenceService {
             return;
         }
         try (ThreadContext.StoredContext context = getContext()) {
-            fetchRuleById(ruleId, new ActionListener<>() {
+            getRule(ruleId, new HashMap<>(), null, new ActionListener<>() {
                 @Override
                 public void onResponse(GetRuleResponse getRuleResponse) {
                     if (getRuleResponse == null || getRuleResponse.getRules().isEmpty()) {
@@ -419,8 +359,9 @@ public class RulePersistenceService {
      */
     public void persistUpdatedRule(String ruleId, Rule updatedRule, ActionListener<UpdateRuleResponse> listener) {
         try (ThreadContext.StoredContext context = getContext()) {
-            UpdateRequest updateRequest = new UpdateRequest(RULES_INDEX, ruleId)
-                .doc(updatedRule.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS));
+            UpdateRequest updateRequest = new UpdateRequest(RULES_INDEX, ruleId).doc(
+                updatedRule.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS)
+            );
             client.update(updateRequest, ActionListener.wrap(updateResponse -> {
                 listener.onResponse(new UpdateRuleResponse(ruleId, updatedRule, RestStatus.OK));
             }, e -> {
