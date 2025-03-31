@@ -11,11 +11,11 @@ package org.opensearch.autotagging;
 import org.opensearch.common.ValidationException;
 import org.joda.time.Instant;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.opensearch.cluster.metadata.QueryGroup.isValid;
 
@@ -98,7 +98,7 @@ public class RuleValidator {
         return str == null || str.isEmpty();
     }
 
-    private boolean isEmpty(String str) {
+    public static boolean isEmpty(String str) {
         return str != null && str.isEmpty();
     }
 
@@ -136,9 +136,7 @@ public class RuleValidator {
 
     private List<String> validateAttributeExistence(Attribute attribute) {
         if (featureType.getAttributeFromName(attribute.getName()) == null) {
-            return List.of(
-                attribute.getName() + " is not a valid attribute within the " + featureType.getName() + " feature."
-            );
+            return List.of(attribute.getName() + " is not a valid attribute within the " + featureType.getName() + " feature.");
         }
         return new ArrayList<>();
     }
@@ -169,9 +167,7 @@ public class RuleValidator {
         int maxValueLength = featureType.getMaxCharLengthPerAttributeValue();
         for (String attributeValue : attributeValues) {
             if (attributeValue.isEmpty() || attributeValue.length() > maxValueLength) {
-                return List.of(
-                    "Attribute value [" + attributeValue + "] is invalid (empty or exceeds " + maxValueLength + " characters)"
-                );
+                return List.of("Attribute value [" + attributeValue + "] is invalid (empty or exceeds " + maxValueLength + " characters)");
             }
         }
         return new ArrayList<>();

@@ -49,11 +49,11 @@ public class Rule implements Writeable, ToXContentObject {
     public static final String UPDATED_AT_STRING = "updated_at";
 
     public Rule(
-            String description,
-            Map<Attribute, Set<String>> attributeMap,
-            FeatureType featureType,
-            String featureValue,
-            String updatedAt
+        String description,
+        Map<Attribute, Set<String>> attributeMap,
+        FeatureType featureType,
+        String featureValue,
+        String updatedAt
     ) {
         this.description = description;
         this.featureType = featureType;
@@ -130,11 +130,11 @@ public class Rule implements Writeable, ToXContentObject {
         if (o == null || getClass() != o.getClass()) return false;
         Rule that = (Rule) o;
         return Objects.equals(description, that.description)
-                && Objects.equals(featureValue, that.featureValue)
-                && Objects.equals(featureType, that.featureType)
-                && Objects.equals(attributeMap, that.attributeMap)
-                && Objects.equals(ruleValidator, that.ruleValidator)
-                && Objects.equals(updatedAt, that.updatedAt);
+            && Objects.equals(featureValue, that.featureValue)
+            && Objects.equals(featureType, that.featureType)
+            && Objects.equals(attributeMap, that.attributeMap)
+            && Objects.equals(ruleValidator, that.ruleValidator)
+            && Objects.equals(updatedAt, that.updatedAt);
     }
 
     @Override
@@ -195,10 +195,10 @@ public class Rule implements Writeable, ToXContentObject {
         }
 
         public static void fromXContentParseArray(
-                XContentParser parser,
-                String fieldName,
-                FeatureType featureType,
-                Map<Attribute, Set<String>> attributeMap
+            XContentParser parser,
+            String fieldName,
+            FeatureType featureType,
+            Map<Attribute, Set<String>> attributeMap
         ) throws IOException {
             Attribute attribute = featureType.getAttributeFromName(fieldName);
             if (attribute == null) {
