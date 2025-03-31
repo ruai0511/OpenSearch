@@ -11,11 +11,11 @@ package org.opensearch.autotagging;
 import org.opensearch.common.ValidationException;
 import org.joda.time.Instant;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.opensearch.cluster.metadata.QueryGroup.isValid;
 
@@ -53,29 +53,25 @@ public class RuleValidator {
         errorMessages.addAll(validateFeatureType());
         errorMessages.addAll(validateUpdatedAtEpoch());
         errorMessages.addAll(validateAttributeMap());
-        handleErrorMessages(errorMessages);
+        if (!errorMessages.isEmpty()) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationErrors(errorMessages);
+            throw new IllegalArgumentException(validationException);
+        }
     }
 
-    public void validateUpdatingRuleParams() {
+    public List<String> validateUpdatingRuleParams() {
         List<String> errorMessages = new ArrayList<>();
-        if (isEmpty(description)) {
+        if (isInvalidUpdatedValue(description)) {
             errorMessages.add("Rule description can't be empty");
         }
-        if (isEmpty(featureValue)) {
+        if (isInvalidUpdatedValue(featureValue)) {
             errorMessages.add("Rule featureValue can't be empty");
         }
         if (attributeMap != null && !attributeMap.isEmpty()) {
             validateAttributeMap();
         }
-        handleErrorMessages(errorMessages);
-    }
-
-    private void handleErrorMessages(List<String> errorMessages) {
-        if (errorMessages != null && !errorMessages.isEmpty()) {
-            ValidationException validationException = new ValidationException();
-            validationException.addValidationErrors(errorMessages);
-            throw new IllegalArgumentException(validationException);
-        }
+        return errorMessages;
     }
 
     private List<String> validateStringFields() {
@@ -98,7 +94,7 @@ public class RuleValidator {
         return str == null || str.isEmpty();
     }
 
-    private boolean isEmpty(String str) {
+    public static boolean isInvalidUpdatedValue(String str) {
         return str != null && str.isEmpty();
     }
 
@@ -136,9 +132,7 @@ public class RuleValidator {
 
     private List<String> validateAttributeExistence(Attribute attribute) {
         if (featureType.getAttributeFromName(attribute.getName()) == null) {
-            return List.of(
-                attribute.getName() + " is not a valid attribute within the " + featureType.getName() + " feature."
-            );
+            return List.of(attribute.getName() + " is not a valid attribute within the " + featureType.getName() + " feature.");
         }
         return new ArrayList<>();
     }
@@ -169,9 +163,7 @@ public class RuleValidator {
         int maxValueLength = featureType.getMaxCharLengthPerAttributeValue();
         for (String attributeValue : attributeValues) {
             if (attributeValue.isEmpty() || attributeValue.length() > maxValueLength) {
-                return List.of(
-                    "Attribute value [" + attributeValue + "] is invalid (empty or exceeds " + maxValueLength + " characters)"
-                );
+                return List.of("Attribute value [" + attributeValue + "] is invalid (empty or exceeds " + maxValueLength + " characters)");
             }
         }
         return new ArrayList<>();
