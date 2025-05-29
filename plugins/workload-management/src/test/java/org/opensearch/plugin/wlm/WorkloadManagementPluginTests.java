@@ -34,6 +34,7 @@ import org.opensearch.rule.service.IndexStoredRulePersistenceService;
 import org.opensearch.script.ScriptService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 import org.opensearch.watcher.ResourceWatcherService;
 
@@ -43,7 +44,7 @@ import java.util.List;
 import static org.mockito.Mockito.mock;
 
 public class WorkloadManagementPluginTests extends OpenSearchTestCase {
-    WorkloadManagementPlugin plugin = new WorkloadManagementPlugin();
+    WorkloadManagementPlugin plugin = new WorkloadManagementPlugin(mock(TransportService.class));
 
     public void testGetActionsReturnsHandlers() {
         List<ActionPlugin.ActionHandler<? extends ActionRequest, ? extends ActionResponse>> actions = plugin.getActions();

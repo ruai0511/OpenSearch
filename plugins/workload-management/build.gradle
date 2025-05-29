@@ -14,6 +14,11 @@ apply plugin: 'opensearch.yaml-rest-test'
 apply plugin: 'opensearch.java-rest-test'
 apply plugin: 'opensearch.internal-cluster-test'
 
+def opensearch_version = System.getProperty("opensearch.version")
+def version_tokens = opensearch_version.tokenize('-')
+def opensearch_build = version_tokens[0] + '.0'
+def common_utils_version = System.getProperty("common_utils.version", opensearch_build)
+
 opensearchplugin {
   description = 'OpenSearch Workload Management Plugin.'
   classname = 'org.opensearch.plugin.wlm.WorkloadManagementPlugin'
@@ -22,6 +27,7 @@ opensearchplugin {
 
 dependencies {
   implementation project(':modules:autotagging-commons:common')
+  implementation "org.opensearch:common-utils:${common_utils_version}"
   compileOnly project(':modules:autotagging-commons:spi')
   compileOnly project(':modules:autotagging-commons')
   testImplementation project(':modules:autotagging-commons')

@@ -11,10 +11,7 @@ package org.opensearch.rule.action;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.rule.CreateRuleRequest;
-import org.opensearch.rule.CreateRuleResponse;
-import org.opensearch.rule.RulePersistenceService;
-import org.opensearch.rule.RulePersistenceServiceRegistry;
+import org.opensearch.rule.*;
 import org.opensearch.rule.autotagging.FeatureType;
 import org.opensearch.rule.autotagging.Rule;
 import org.opensearch.rule.service.IndexStoredRulePersistenceService;
@@ -35,10 +32,8 @@ import static org.mockito.Mockito.when;
 @SuppressWarnings("unchecked")
 public class TransportCreateRuleActionTests extends OpenSearchTestCase {
     private TransportService transportService;
-    private ClusterService clusterService;
     private ThreadPool threadPool;
     private RulePersistenceServiceRegistry registry;
-    private Client client;
     private ActionFilters actionFilters;
     private TransportCreateRuleAction action;
     private FeatureType mockFeatureType;
@@ -48,15 +43,13 @@ public class TransportCreateRuleActionTests extends OpenSearchTestCase {
     public void setUp() throws Exception {
         super.setUp();
         transportService = mock(TransportService.class);
-        clusterService = mock(ClusterService.class);
         threadPool = mock(ThreadPool.class);
         registry = mock(RulePersistenceServiceRegistry.class);
-        client = mock(Client.class);
         actionFilters = mock(ActionFilters.class);
         mockFeatureType = mock(FeatureType.class);
-        RulePersistenceServiceRegistry registry = new RulePersistenceServiceRegistry();
+        RuleRoutingServiceRegistry registry = new RuleRoutingServiceRegistry();
         when(mockFeatureType.getName()).thenReturn("test_feature");
-        RulePersistenceService mockService = mock(RulePersistenceService.class);
+        RuleRoutingService mockService = mock(RuleRoutingService.class);
         registry.register(mockFeatureType, mockService);
 
         ExecutorService executorService = mock(ExecutorService.class);
@@ -66,7 +59,7 @@ public class TransportCreateRuleActionTests extends OpenSearchTestCase {
             return null;
         }).when(executorService).execute(any());
         when(threadPool.executor(any())).thenReturn(executorService);
-        action = new TransportCreateRuleAction(client, transportService, clusterService, threadPool, actionFilters, registry);
+        action = new TransportCreateRuleAction(transportService, actionFilters, registry);
     }
 
     public void testExecution() {
