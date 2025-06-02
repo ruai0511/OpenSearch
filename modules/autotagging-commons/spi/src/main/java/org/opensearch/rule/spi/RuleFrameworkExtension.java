@@ -31,7 +31,6 @@ public interface RuleFrameworkExtension {
      */
     Supplier<RuleRoutingService> getRuleRoutingServiceSupplier();
 
-
     /**
      * Flow implementation from consumer plugins into framework plugin
      * @return the specific implementation of FeatureType

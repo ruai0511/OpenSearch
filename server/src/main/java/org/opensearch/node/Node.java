@@ -197,38 +197,7 @@ import org.opensearch.persistent.PersistentTasksClusterService;
 import org.opensearch.persistent.PersistentTasksExecutor;
 import org.opensearch.persistent.PersistentTasksExecutorRegistry;
 import org.opensearch.persistent.PersistentTasksService;
-import org.opensearch.plugins.ActionPlugin;
-import org.opensearch.plugins.AnalysisPlugin;
-import org.opensearch.plugins.CachePlugin;
-import org.opensearch.plugins.CircuitBreakerPlugin;
-import org.opensearch.plugins.ClusterPlugin;
-import org.opensearch.plugins.CryptoKeyProviderPlugin;
-import org.opensearch.plugins.CryptoPlugin;
-import org.opensearch.plugins.DiscoveryPlugin;
-import org.opensearch.plugins.EnginePlugin;
-import org.opensearch.plugins.ExtensionAwarePlugin;
-import org.opensearch.plugins.IdentityAwarePlugin;
-import org.opensearch.plugins.IdentityPlugin;
-import org.opensearch.plugins.IndexStorePlugin;
-import org.opensearch.plugins.IngestPlugin;
-import org.opensearch.plugins.IngestionConsumerPlugin;
-import org.opensearch.plugins.MapperPlugin;
-import org.opensearch.plugins.MetadataUpgrader;
-import org.opensearch.plugins.NetworkPlugin;
-import org.opensearch.plugins.PersistentTaskPlugin;
-import org.opensearch.plugins.Plugin;
-import org.opensearch.plugins.PluginInfo;
-import org.opensearch.plugins.PluginsService;
-import org.opensearch.plugins.RepositoryPlugin;
-import org.opensearch.plugins.ScriptPlugin;
-import org.opensearch.plugins.SearchPipelinePlugin;
-import org.opensearch.plugins.SearchPlugin;
-import org.opensearch.plugins.SecureSettingsFactory;
-import org.opensearch.plugins.StreamManagerPlugin;
-import org.opensearch.plugins.SystemIndexPlugin;
-import org.opensearch.plugins.TaskManagerClientPlugin;
-import org.opensearch.plugins.TelemetryAwarePlugin;
-import org.opensearch.plugins.TelemetryPlugin;
+import org.opensearch.plugins.*;
 import org.opensearch.ratelimitting.admissioncontrol.AdmissionControlService;
 import org.opensearch.ratelimitting.admissioncontrol.transport.AdmissionControlTransportInterceptor;
 import org.opensearch.repositories.RepositoriesModule;
@@ -1362,6 +1331,7 @@ public class Node implements Closeable {
                 clusterManagerMetrics,
                 remoteClusterStateService
             );
+
             final SearchPipelineService searchPipelineService = new SearchPipelineService(
                 clusterService,
                 threadPool,
@@ -1479,6 +1449,10 @@ public class Node implements Closeable {
             mergedSegmentWarmerFactory = new MergedSegmentWarmerFactory(transportService, recoverySettings, clusterService);
 
             final MappingTransformerRegistry mappingTransformerRegistry = new MappingTransformerRegistry(mapperPlugins, xContentRegistry);
+
+            for (AutoTaggingPlugin plugin : pluginsService.filterPlugins(AutoTaggingPlugin.class)) {
+                plugin.getTransportService(transportService);
+            }
 
             modules.add(b -> {
                 b.bind(Node.class).toInstance(this);

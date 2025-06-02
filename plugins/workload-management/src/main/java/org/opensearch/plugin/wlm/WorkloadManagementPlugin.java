@@ -38,9 +38,10 @@ import org.opensearch.plugin.wlm.rest.RestGetWorkloadGroupAction;
 import org.opensearch.plugin.wlm.rest.RestUpdateWorkloadGroupAction;
 import org.opensearch.plugin.wlm.rule.WorkloadGroupFeatureType;
 import org.opensearch.plugin.wlm.rule.WorkloadGroupFeatureValueValidator;
+import org.opensearch.plugin.wlm.rule.WorkloadGroupRuleRoutingService;
 import org.opensearch.plugin.wlm.service.WorkloadGroupPersistenceService;
-import org.opensearch.plugin.wlm.service.WorkloadGroupRuleRoutingService;
 import org.opensearch.plugins.ActionPlugin;
+import org.opensearch.plugins.AutoTaggingPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.repositories.RepositoriesService;
@@ -55,7 +56,6 @@ import org.opensearch.rule.storage.IndexBasedRuleQueryMapper;
 import org.opensearch.rule.storage.XContentRuleParser;
 import org.opensearch.script.ScriptService;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 import org.opensearch.watcher.ResourceWatcherService;
@@ -68,7 +68,7 @@ import java.util.function.Supplier;
 /**
  * Plugin class for WorkloadManagement
  */
-public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin, RuleFrameworkExtension {
+public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, SystemIndexPlugin, AutoTaggingPlugin, RuleFrameworkExtension {
 
     /**
      * The name of the index where rules are stored.
@@ -85,8 +85,7 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, Sy
     /**
      * Default constructor
      */
-    public WorkloadManagementPlugin() {
-    }
+    public WorkloadManagementPlugin() {}
 
     @Override
     public Collection<Object> createComponents(
@@ -111,14 +110,13 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, Sy
             new XContentRuleParser(featureType),
             new IndexBasedRuleQueryMapper()
         );
-        ruleRoutingService = new WorkloadGroupRuleRoutingService(
-            client,
-            clusterService,
-            transportService,
-            threadPool,
-            rulePersistenceService
-        );
+        ruleRoutingService = new WorkloadGroupRuleRoutingService(client, clusterService);
         return Collections.emptyList();
+    }
+
+    @Override
+    public void getTransportService(TransportService transportService) {
+        ruleRoutingService.setTransportService(transportService);
     }
 
     @Override
@@ -161,8 +159,7 @@ public class WorkloadManagementPlugin extends Plugin implements ActionPlugin, Sy
 
     @Override
     public Collection<Module> createGuiceModules() {
-        return List.of(
-            new WorkloadManagementPluginModule());
+        return List.of(new WorkloadManagementPluginModule());
     }
 
     @Override

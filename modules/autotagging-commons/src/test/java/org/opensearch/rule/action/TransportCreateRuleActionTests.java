@@ -9,23 +9,25 @@
 package org.opensearch.rule.action;
 
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.rule.*;
+import org.opensearch.rule.CreateRuleRequest;
+import org.opensearch.rule.CreateRuleResponse;
+import org.opensearch.rule.RulePersistenceServiceRegistry;
+import org.opensearch.rule.RuleRoutingService;
+import org.opensearch.rule.RuleRoutingServiceRegistry;
 import org.opensearch.rule.autotagging.FeatureType;
 import org.opensearch.rule.autotagging.Rule;
 import org.opensearch.rule.service.IndexStoredRulePersistenceService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
-import org.opensearch.transport.client.Client;
 
 import java.util.concurrent.ExecutorService;
 
-import static org.opensearch.rule.RuleFrameworkPlugin.RULE_THREAD_POOL_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,10 +35,12 @@ import static org.mockito.Mockito.when;
 public class TransportCreateRuleActionTests extends OpenSearchTestCase {
     private TransportService transportService;
     private ThreadPool threadPool;
-    private RulePersistenceServiceRegistry registry;
     private ActionFilters actionFilters;
     private TransportCreateRuleAction action;
     private FeatureType mockFeatureType;
+    private RuleRoutingServiceRegistry routingRegistry;
+    private RulePersistenceServiceRegistry persistenceRegistry;
+    private RuleRoutingService mockRoutingService;
 
     private final String testIndexName = "test-index";
 
@@ -44,13 +48,13 @@ public class TransportCreateRuleActionTests extends OpenSearchTestCase {
         super.setUp();
         transportService = mock(TransportService.class);
         threadPool = mock(ThreadPool.class);
-        registry = mock(RulePersistenceServiceRegistry.class);
         actionFilters = mock(ActionFilters.class);
         mockFeatureType = mock(FeatureType.class);
-        RuleRoutingServiceRegistry registry = new RuleRoutingServiceRegistry();
+        routingRegistry = mock(RuleRoutingServiceRegistry.class);
+        persistenceRegistry = mock(RulePersistenceServiceRegistry.class);
         when(mockFeatureType.getName()).thenReturn("test_feature");
-        RuleRoutingService mockService = mock(RuleRoutingService.class);
-        registry.register(mockFeatureType, mockService);
+        mockRoutingService = mock(RuleRoutingService.class);
+        routingRegistry.register(mockFeatureType, mockRoutingService);
 
         ExecutorService executorService = mock(ExecutorService.class);
         doAnswer(invocation -> {
@@ -59,17 +63,18 @@ public class TransportCreateRuleActionTests extends OpenSearchTestCase {
             return null;
         }).when(executorService).execute(any());
         when(threadPool.executor(any())).thenReturn(executorService);
-        action = new TransportCreateRuleAction(transportService, actionFilters, registry);
+        action = new TransportCreateRuleAction(transportService, threadPool, actionFilters, persistenceRegistry, routingRegistry);
     }
 
     public void testExecution() {
         IndexStoredRulePersistenceService persistenceService = mock(IndexStoredRulePersistenceService.class);
-        when(registry.getRulePersistenceService(mockFeatureType)).thenReturn(persistenceService);
+        when(persistenceRegistry.getRulePersistenceService(mockFeatureType)).thenReturn(persistenceService);
+        when(routingRegistry.getRuleRoutingService(mockFeatureType)).thenReturn(mockRoutingService);
         Rule rule = mock(Rule.class);
         when(rule.getFeatureType()).thenReturn(mockFeatureType);
         CreateRuleRequest request = new CreateRuleRequest(rule);
         ActionListener<CreateRuleResponse> listener = mock(ActionListener.class);
         action.doExecute(null, request, listener);
-        verify(threadPool).executor(RULE_THREAD_POOL_NAME);
+        verify(routingRegistry, times(1)).getRuleRoutingService(request.getRule().getFeatureType());
     }
 }
