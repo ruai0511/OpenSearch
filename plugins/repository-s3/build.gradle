@@ -130,7 +130,7 @@ bundlePlugin {
     into 'config'
   }
 }
-
+version
 task testRepositoryCreds(type: TestTask) {
   include '**/RepositoryCredentialsTests.class'
   systemProperty 'opensearch.allow_insecure_settings', 'true'
