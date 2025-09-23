@@ -16,11 +16,11 @@ import org.opensearch.action.support.ActionFilterChain;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.plugin.wlm.rule.attribute_extractor.IndicesExtractor;
-import org.opensearch.plugin.wlm.spi.AttributeExtension;
-import org.opensearch.rule.AttributesPlugin;
+import org.opensearch.plugin.wlm.spi.AttributeExtractorExtension;
 import org.opensearch.rule.InMemoryRuleProcessingService;
 import org.opensearch.rule.attribute_extractor.AttributeExtractor;
 import org.opensearch.rule.autotagging.Attribute;
+import org.opensearch.rule.autotagging.FeatureType;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.wlm.WlmMode;
@@ -31,14 +31,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.opensearch.plugin.wlm.WorkloadManagementPlugin.PRINCIPAL_ATTRIBUTE_NAME;
+
 /**
  * This class is responsible to evaluate and assign the WORKLOAD_GROUP_ID header in ThreadContext
  */
 public class AutoTaggingActionFilter implements ActionFilter {
     private final InMemoryRuleProcessingService ruleProcessingService;
     private final ThreadPool threadPool;
-    private final Map<Attribute, AttributeExtension> attributeExtensions;
+    private final Map<Attribute, AttributeExtractorExtension> attributeExtensions;
     private final WlmClusterSettingValuesProvider wlmClusterSettingValuesProvider;
+    private final FeatureType featureType;
 
     /**
      * Main constructor
@@ -46,17 +49,20 @@ public class AutoTaggingActionFilter implements ActionFilter {
      * @param threadPool to access assign the label
      * @param attributeExtensions
      * @param wlmClusterSettingValuesProvider
+     * @param featureType
      */
     public AutoTaggingActionFilter(
         InMemoryRuleProcessingService ruleProcessingService,
         ThreadPool threadPool,
-        Map<Attribute, AttributeExtension> attributeExtensions,
-        WlmClusterSettingValuesProvider wlmClusterSettingValuesProvider
+        Map<Attribute, AttributeExtractorExtension> attributeExtensions,
+        WlmClusterSettingValuesProvider wlmClusterSettingValuesProvider,
+        FeatureType featureType
     ) {
         this.ruleProcessingService = ruleProcessingService;
         this.threadPool = threadPool;
         this.attributeExtensions = attributeExtensions;
         this.wlmClusterSettingValuesProvider = wlmClusterSettingValuesProvider;
+        this.featureType = featureType;
     }
 
     @Override
@@ -81,11 +87,20 @@ public class AutoTaggingActionFilter implements ActionFilter {
         List<AttributeExtractor<String>> attributeExtractors = new ArrayList<>();
         attributeExtractors.add(new IndicesExtractor((IndicesRequest) request));
 
-        var principalExtension = attributeExtensions.get(AttributesPlugin.attributesExtensions.get("principal").getAttribute());
-        if (principalExtension != null) {
-            attributeExtractors.add(principalExtension.getAttributeExtractor());
+        if (featureType.getAllowedAttributesRegistry().containsKey(PRINCIPAL_ATTRIBUTE_NAME)) {
+            System.out.println("AutoTaggingActionFilter enabled security attributes: " + PRINCIPAL_ATTRIBUTE_NAME);
+            Attribute attribute = featureType.getAllowedAttributesRegistry().get(PRINCIPAL_ATTRIBUTE_NAME);
+            assert attributeExtensions.containsKey(attribute);
+            System.out.println("AutoTaggingActionFilter find security attributes extractor");
+            attributeExtractors.add(attributeExtensions.get(attribute).getAttributeExtractor());
         }
+
         Optional<String> label = ruleProcessingService.evaluateFeatureValue(attributeExtractors);
+        if (label.isPresent()) {
+            System.out.println("AutoTaggingActionFilter label: " + label.get());
+        } else {
+            System.out.println("AutoTaggingActionFilter label: empty");
+        }
         label.ifPresent(s -> threadPool.getThreadContext().putHeader(WorkloadGroupTask.WORKLOAD_GROUP_ID_HEADER, s));
         chain.proceed(task, action, request, listener);
     }

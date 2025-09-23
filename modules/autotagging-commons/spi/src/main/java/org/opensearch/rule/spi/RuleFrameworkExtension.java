@@ -10,9 +10,12 @@ package org.opensearch.rule.spi;
 
 import org.opensearch.rule.RulePersistenceService;
 import org.opensearch.rule.RuleRoutingService;
+import org.opensearch.rule.autotagging.Attribute;
 import org.opensearch.rule.autotagging.FeatureType;
 
+import java.util.List;
 import java.util.function.Supplier;
+
 
 /**
  * This interface exposes methods for the RuleFrameworkPlugin to extract framework related
@@ -36,4 +39,10 @@ public interface RuleFrameworkExtension {
      * @return the specific implementation of FeatureType
      */
     Supplier<FeatureType> getFeatureTypeSupplier();
+
+    /**
+     * Flow attributes from RuleFrameworkExtension to implementation plugins
+     * @param attributes
+     */
+    void setAttributes(List<Attribute> attributes);
 }

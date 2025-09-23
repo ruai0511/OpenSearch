@@ -123,4 +123,12 @@ public interface FeatureType extends Writeable {
     static FeatureType from(String name) {
         return AutoTaggingRegistry.getFeatureType(name);
     }
+
+    /**
+     * add orderedAttributes to feature type
+     * @param orderedAttributes
+     */
+    default void putOrderedAttributes(Map<Attribute, Integer> orderedAttributes) {
+        getOrderedAttributes().putAll(orderedAttributes);
+    }
 }

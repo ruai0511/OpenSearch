@@ -30,20 +30,25 @@ import org.opensearch.rule.action.TransportDeleteRuleAction;
 import org.opensearch.rule.action.TransportGetRuleAction;
 import org.opensearch.rule.action.TransportUpdateRuleAction;
 import org.opensearch.rule.action.UpdateRuleAction;
+import org.opensearch.rule.autotagging.Attribute;
 import org.opensearch.rule.autotagging.AutoTaggingRegistry;
 import org.opensearch.rule.autotagging.FeatureType;
 import org.opensearch.rule.rest.RestCreateRuleAction;
 import org.opensearch.rule.rest.RestDeleteRuleAction;
 import org.opensearch.rule.rest.RestGetRuleAction;
 import org.opensearch.rule.rest.RestUpdateRuleAction;
+import org.opensearch.rule.spi.AttributesExtension;
 import org.opensearch.rule.spi.RuleFrameworkExtension;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
+import org.w3c.dom.Attr;
 
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This plugin provides the central APIs which can provide CRUD support to all consumers of Rule framework
@@ -73,6 +78,7 @@ public class RuleFrameworkPlugin extends Plugin implements ExtensiblePlugin, Act
     private final RulePersistenceServiceRegistry rulePersistenceServiceRegistry = new RulePersistenceServiceRegistry();
     private final RuleRoutingServiceRegistry ruleRoutingServiceRegistry = new RuleRoutingServiceRegistry();
     private final List<RuleFrameworkExtension> ruleFrameworkExtensions = new ArrayList<>();
+    private final AttributesRegistry attributesRegistry = new AttributesRegistry();
 
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
@@ -109,12 +115,21 @@ public class RuleFrameworkPlugin extends Plugin implements ExtensiblePlugin, Act
         return List.of(b -> {
             b.bind(RulePersistenceServiceRegistry.class).toInstance(rulePersistenceServiceRegistry);
             b.bind(RuleRoutingServiceRegistry.class).toInstance(ruleRoutingServiceRegistry);
+            b.bind(AttributesRegistry.class).toInstance(attributesRegistry);
         });
     }
 
     @Override
     public void loadExtensions(ExtensionLoader loader) {
         ruleFrameworkExtensions.addAll(loader.loadExtensions(RuleFrameworkExtension.class));
+        Collection<AttributesExtension> attributesExtensions = loader.loadExtensions(AttributesExtension.class);
+        for (AttributesExtension attributesExtension : attributesExtensions) {
+            attributesRegistry.register(attributesExtension.getAttribute());
+        }
+        List<Attribute> attributesMap = attributesExtensions.stream().map(AttributesExtension::getAttribute).toList();
+        for (RuleFrameworkExtension ruleFrameworkExtension : ruleFrameworkExtensions) {
+            ruleFrameworkExtension.setAttributes(attributesMap);
+        }
     }
 
     private void consumeFrameworkExtension(RuleFrameworkExtension ruleFrameworkExtension) {

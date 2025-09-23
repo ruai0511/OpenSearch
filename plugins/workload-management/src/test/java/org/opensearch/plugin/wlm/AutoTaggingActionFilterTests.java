@@ -58,7 +58,8 @@ public class AutoTaggingActionFilterTests extends OpenSearchTestCase {
             ruleProcessingService,
             threadPool,
             new HashMap<>(),
-            mock(WlmClusterSettingValuesProvider.class)
+            mock(WlmClusterSettingValuesProvider.class),
+            WLMFeatureType.WLM
         );
     }
 

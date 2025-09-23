@@ -26,19 +26,22 @@ public class WorkloadGroupFeatureType implements FeatureType {
     public static final String NAME = "workload_group";
     private static final int MAX_ATTRIBUTE_VALUES = 10;
     private static final int MAX_ATTRIBUTE_VALUE_LENGTH = 100;
-    private final Map<Attribute, Integer> prioritizedAttributes;
+    private final Map<Attribute, Integer> orderedAttributes;
     private final FeatureValueValidator featureValueValidator;
 
     /**
      * constructor for WorkloadGroupFeatureType
      * @param featureValueValidator
+     * @param orderedAttributes
      */
-    public WorkloadGroupFeatureType(FeatureValueValidator featureValueValidator) {
+    public WorkloadGroupFeatureType(FeatureValueValidator featureValueValidator, Map<Attribute, Integer> orderedAttributes) {
         this.featureValueValidator = featureValueValidator;
-        this.prioritizedAttributes = Map.of(
-            AttributesPlugin.attributesExtensions.get("principal").getAttribute(), 1,
-            RuleAttribute.INDEX_PATTERN, 2
-        );
+        orderedAttributes.put(RuleAttribute.INDEX_PATTERN, 2);
+        this.orderedAttributes = orderedAttributes;
+        System.out.println("orderedAttributes size is " + orderedAttributes.size());
+        for  (Map.Entry<Attribute, Integer> entry : orderedAttributes.entrySet()) {
+            System.out.println(entry.getKey() + ": " + entry.getValue());
+        }
     }
 
     @Override
@@ -58,7 +61,7 @@ public class WorkloadGroupFeatureType implements FeatureType {
 
     @Override
     public Map<Attribute, Integer> getOrderedAttributes() {
-        return prioritizedAttributes;
+        return orderedAttributes;
     }
 
     @Override

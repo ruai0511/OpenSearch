@@ -45,7 +45,7 @@ import org.opensearch.plugin.wlm.rule.WorkloadGroupRuleRoutingService;
 import org.opensearch.plugin.wlm.rule.sync.RefreshBasedSyncMechanism;
 import org.opensearch.plugin.wlm.rule.sync.detect.RuleEventClassifier;
 import org.opensearch.plugin.wlm.service.WorkloadGroupPersistenceService;
-import org.opensearch.plugin.wlm.spi.AttributeExtension;
+import org.opensearch.plugin.wlm.spi.AttributeExtractorExtension;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.DiscoveryPlugin;
 import org.opensearch.plugins.ExtensiblePlugin;
@@ -72,11 +72,8 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 import org.opensearch.watcher.ResourceWatcherService;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 import static org.opensearch.rule.service.IndexStoredRulePersistenceService.MAX_WLM_RULES_SETTING;
@@ -100,12 +97,17 @@ public class WorkloadManagementPlugin extends Plugin
      * The maximum number of rules allowed per GET request.
      */
     public static final int MAX_RULES_PER_PAGE = 50;
+    /**
+     * Principal attribute name
+     */
+    public static final String PRINCIPAL_ATTRIBUTE_NAME = "principal";
     private static FeatureType featureType;
     private static RulePersistenceService rulePersistenceService;
     private static RuleRoutingService ruleRoutingService;
+    private static final Map<Attribute, Integer> orderedAttributes = new HashMap<>();
     private WlmClusterSettingValuesProvider wlmClusterSettingValuesProvider;
     private AutoTaggingActionFilter autoTaggingActionFilter;
-    private final Map<Attribute, AttributeExtension> attributeExtensions = new HashMap<>();
+    private final Map<Attribute, AttributeExtractorExtension> attributeExtractorExtensions = new HashMap<>();
 
     /**
      * Default constructor
@@ -130,7 +132,9 @@ public class WorkloadManagementPlugin extends Plugin
             clusterService.getSettings(),
             clusterService.getClusterSettings()
         );
-        featureType = new WorkloadGroupFeatureType(new WorkloadGroupFeatureValueValidator(clusterService));
+        System.out.println("three"+orderedAttributes.size());
+        featureType = new WorkloadGroupFeatureType(new WorkloadGroupFeatureValueValidator(clusterService), orderedAttributes);
+        System.out.println("four"+orderedAttributes.size());
         RuleEntityParser parser = new XContentRuleParser(featureType);
         AttributeValueStoreFactory attributeValueStoreFactory = new AttributeValueStoreFactory(
             featureType,
@@ -162,8 +166,9 @@ public class WorkloadManagementPlugin extends Plugin
         autoTaggingActionFilter = new AutoTaggingActionFilter(
             ruleProcessingService,
             threadPool,
-            attributeExtensions,
-            wlmClusterSettingValuesProvider
+            attributeExtractorExtensions,
+            wlmClusterSettingValuesProvider,
+            featureType
         );
         return List.of(refreshMechanism);
     }
@@ -241,9 +246,21 @@ public class WorkloadManagementPlugin extends Plugin
         return () -> featureType;
     }
 
+    @Override
+    public void setAttributes(List<Attribute> attributes) {
+        for (Attribute attribute : attributes) {
+            if (attribute.getName().equals(PRINCIPAL_ATTRIBUTE_NAME)) {
+                System.out.println("one"+orderedAttributes.size());
+                orderedAttributes.put(attribute, 1);
+                System.out.println("two"+orderedAttributes.size());
+                System.out.println("Found principal attribute security attribute and loaded to feature type [" + attribute.getName() + "]");
+            }
+        }
+    }
+
     public void loadExtensions(ExtensionLoader loader) {
-        for (AttributeExtension ext : loader.loadExtensions(AttributeExtension.class)) {
-            attributeExtensions.put(ext.getAttributeExtractor().getAttribute(), ext);
+        for (AttributeExtractorExtension ext : loader.loadExtensions(AttributeExtractorExtension.class)) {
+            attributeExtractorExtensions.put(ext.getAttributeExtractor().getAttribute(), ext);
         }
     }
 }

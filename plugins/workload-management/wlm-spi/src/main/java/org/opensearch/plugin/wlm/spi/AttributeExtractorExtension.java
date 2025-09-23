@@ -15,7 +15,7 @@ import org.opensearch.rule.attribute_extractor.AttributeExtractor;
  * Implementations of this interface allow plugins to contribute their own
  * logic for extracting attributes that can be used by the Workload Management framework.
  */
-public interface AttributeExtension {
+public interface AttributeExtractorExtension {
 
     /**
      * AttributeExtractor getter
